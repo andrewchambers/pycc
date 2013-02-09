@@ -7,31 +7,28 @@ from backend import ir
 
 class IRGenerator(c_ast.NodeVisitor):
     
-    def __init__(self):
+    def __init__(self,symtab):
         self.module = None
         self.curfunction = None
+        self.symtab = symtab
     
     def visit_FileAST(self,node):
         self.module = module.Module()
         self.generic_visit(node)
         
     def visit_FuncDef(self,node):
-        print('visiting a func def...')
-        node.show()
         self.curFunction = function.Function()
         self.curBasicBlock = basicblock.BasicBlock()
         self.generic_visit(node)
     
     def visit_FuncDecl(self,node):
-        print('visiting a func decl...')
+        pass
     
     def visit_BinaryOp(self,node):
-        print('visiting a binop...')
-        node.show()
         lv = self.visit(node.left)
         rv = self.visit(node.right)
         result = ir.I32()
-        self.curBasicBlock.appendOpcode(ir.Binop(op,result,lv,rv))
+        self.curBasicBlock.appendOpcode(ir.Binop(node.op,result,lv,rv))
         return result
         
     def visit_Constant(self,node):
@@ -47,15 +44,15 @@ class IRGenerator(c_ast.NodeVisitor):
     
     def visit_ID(self,node):
         
-        var = self.getScope().lookupName(node.name)
-        return var
+        sym = self.symtab.lookupID(node)
+        #XXX load from memory etc
+        return ir.I32()
         
         
     def visit_Return(self,ret):
-        print('visiting a return...')
-        ret.show()
         self.generic_visit(ret)
     
     def getModule(self):
         return self.module
     
+

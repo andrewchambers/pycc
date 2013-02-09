@@ -10,12 +10,16 @@ class CFrontend(object):
 
     @staticmethod
     def translateModule(fname):
+        print("parsing file")
         ast = parse_file(fname,use_cpp=False)
-        stb = symtab.SymTabGenerator()
+        ast.show()
+        print("generating symtab")
+        stb = symtab.SymTab()
         stb.visit(ast)
         
-        irg = irgen.IRGenerator()
+        irg = irgen.IRGenerator(stb)
         irg.visit(ast)
         mod = irg.getModule()
         
         return mod
+
