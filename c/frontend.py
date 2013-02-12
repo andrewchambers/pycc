@@ -5,7 +5,6 @@ import typecheck
 import irgen
 
 
-
 class CFrontend(object):
 
     @staticmethod
@@ -13,7 +12,7 @@ class CFrontend(object):
         print("parsing file")
         ast = parse_file(fname,use_cpp=False)
         ast.show()
-        print("generating symtab")
+        print("generating symtab:")
         stb = symtab.SymTab()
         stb.visit(ast)
         
