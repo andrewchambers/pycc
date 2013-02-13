@@ -12,13 +12,16 @@ class Function(object):
     
     def __iter__(self):
         def generator():
+            visited = set()
             stack = [self.entry]
             while (len(stack)):
                 curblock = stack.pop()
-                if not len(curblock):
+                if curblock in visited:
                     continue
+                visited.add(curblock)
                 yield curblock
-                for b in curblock[-1].getSuccessors():
-                    stack.append(b)
+                if len(curblock):
+                    for b in curblock[-1].getSuccessors():
+                        stack.append(b)
         
         return generator().__iter__()

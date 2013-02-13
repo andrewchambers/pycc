@@ -4,13 +4,19 @@
 
 int main(int argc) {
     
-    if(argc) {
-        return 0;
-    } else if (1) {
-        return 1;
+    
+    if(1) {
+        5;
+        if(3){
+            30;
+        }
+        10;
+        
     } else if (2) {
-        return 2;
+        15;
+    } else {
+        20;
     }
     
-    return 3;
+    return 500;
 }
