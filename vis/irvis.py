@@ -1,11 +1,5 @@
 import gv
 
-
-" [shape=none, margin 0,label=<"
-"<TABLE>"
-"</TABLE>"
-">];"
-
 def showFunction(f):
         with gv.GraphViz() as g:
             g.write("digraph g {\n")

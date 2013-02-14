@@ -33,6 +33,9 @@ class Instruction(object):
         self.assigned = []
         self.read = []
         self.successors = []
+    
+    def getDagDisplayText(self):
+        return self.__class__.__name__
         
     def isTerminator(self):
         return False
@@ -48,7 +51,12 @@ class Instruction(object):
             if v is old:
                 self.successors[k] = new
     
-
+    def readsMem(self):
+        return False
+    
+    def writesMem(self):
+        return False
+        
 class Dummy(Instruction):
     def __init__(self,v):
         Instruction.__init__(self)
@@ -60,6 +68,10 @@ class Binop(Instruction):
         self.op = op
         self.assigned = [res]
         self.read = [l,r]
+    
+    def getDagDisplayText(self):
+        return self.op.replace(">","GT").replace("<","LT")
+    
     def __repr__(self):
         
         return "%s = %s %s %s"%(self.assigned[0],self.read[0],self.op,
@@ -107,13 +119,19 @@ class Deref(Instruction):
     def __repr__(self):
         return "%s = *%s"%(self.assigned[0],self.read[0])
     
+    def readsMem(self):
+        return True
+    
 class Store(Instruction):
     def __init__(self,p,val):
         Instruction.__init__(self)
         self.read = [p,val]
+    
     def __repr__(self):
         return "*%s = %s"%(self.read[0],self.read[1])
     
+    def writesMem(self):
+        return True
         
 class Terminator(Instruction):
     def isTerminator(self):
@@ -146,6 +164,11 @@ class Jmp(Terminator):
     def __repr__(self):
         return "jmp %s" % self.successors[0]
         
+class Identity(Instruction):
+    def __init__(self,v):
+        Instruction.__init__(self)
+        self.read = []
+        self.assigned = [v]
 
 class Move(Instruction):
     def __init__(self,l,r):
