@@ -14,20 +14,20 @@ def showSelDAG(dg):
                 
             g.write("digraph g {\n")
             for node in dg.nodes:
-                span = max(len(node.read),1)
+                span = max(len(node.instr.read),1)
                 g.write("%s [shape=none, margin 0,label=<\n" % nodenames[node] )
                 g.write("<TABLE>\n")
                 g.write("<TR>")
-                if len(node.assigned):
-                    for v in node.assigned:
+                if len(node.instr.assigned):
+                    for v in node.instr.assigned:
                         g.write("<TD COLSPAN=\"%d\">%s</TD>"%(span,v))
                 else:
                     g.write("<TD COLSPAN=\"%d\">X</TD>\n"%span)
                 g.write("</TR>\n")
-                g.write("<TR><TD COLSPAN=\"%d\">%s</TD></TR>\n"%(span,node.getDagDisplayText()))
+                g.write("<TR><TD COLSPAN=\"%d\">%s</TD></TR>\n"%(span,node.instr.getDagDisplayText()))
                 g.write("<TR>")
-                if len(node.read):
-                    for v in node.read:
+                if len(node.instr.read):
+                    for v in node.instr.read:
                         g.write("<TD>%s</TD>"%v)
                 else:
                     g.write("<TD>X</TD>")
@@ -35,10 +35,13 @@ def showSelDAG(dg):
                 
                 g.write("</TABLE\n>")
                 g.write(">];\n")
-            for e in dg.edges:
-                g.write("%s -> %s;\n"%(nodenames[e[0]],nodenames[e[1]]))
-            for e in dg.controledges:
-                g.write("%s -> %s [style=dotted];\n"%(nodenames[e[0]],nodenames[e[1]]))
+            for n in dg.nodes:
+                for other in n.outs:
+                    g.write("%s -> %s;\n"%(nodenames[n],nodenames[other]))
+            
+            for n in dg.nodes:
+                for other in n.control:
+                    g.write("%s -> %s [style=dotted];\n"%(nodenames[n],nodenames[other]))
             g.write("}")
             g.finalize()
             g.show()

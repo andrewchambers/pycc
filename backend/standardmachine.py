@@ -10,7 +10,15 @@ from passes import branchreplace
 
 from backend import instructionselector
 
+class Register(object):
+    def __init__(self,name,sizes):
+        self.name = name
+        self.sizes = sizes
+    def __repr__(name):
+        return self.name
+
 class StandardMachine(target.Target):
+    
     def translateFunction(self,f,ofile):
         
         irvis.showFunction(f)
@@ -32,8 +40,25 @@ class StandardMachine(target.Target):
         for b in f:
             sd = selectiondag.SelectionDag(b)
             isel = instructionselector.InstructionSelector()
+            dagvis.showSelDAG(sd)
+            self.applyDagFixups(sd)
+            dagvis.showSelDAG(sd)
             isel.select(self,sd)
             dagvis.showSelDAG(sd)
+            self.callingConventions(sd)
+            dagvis.showSelDAG(sd)
+    
+    def applyDagFixups(self,dag):
+        pass
+    
+    def callingConventions(self,dag):
+        pass
+    
+    def prologAndEpilog(self,dag):
+        pass
+    
+    def getRegisters(self):
+        return []
     
     def getInstructions(self):
         raise Exception("unimplemented")

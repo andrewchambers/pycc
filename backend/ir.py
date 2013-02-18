@@ -60,10 +60,6 @@ class Instruction(object):
     def isMD(self):
         return False
         
-class Dummy(Instruction):
-    def __init__(self,v):
-        Instruction.__init__(self)
-        self.setAssignedVars([v])
 
 class Binop(Instruction):
     def __init__(self,op,res,l,r):
@@ -180,5 +176,4 @@ class Move(Instruction):
         self.assigned = [l]
         
     def __repr__(self):
-        return "%s = Move %s" % (self.l,self.r)
-        
+        return "%s = Move %s" % (self.assigned[0],self.read[0])

@@ -3,13 +3,15 @@ from vis import dagvis
 
 class InstructionMatch(object):
     
-    def __init__(self,new,remove,count):
-        self.remove = remove
-        self.new = new
+    def __init__(self,repl,count):
+        self.repl = repl
         self.count = count
     
     def __len__(self):
         return self.count
+        
+    def replace(self):
+        self.repl()
 
 
 class InstructionSelector(object):
@@ -20,21 +22,20 @@ class InstructionSelector(object):
         unmatchable = set()
         while True:
             print("topological sort")
-            dagvis.showSelDAG(dag)
             nodes = dag.topological()
             matches = []
-            
             n = nodes.pop()
             print("finding a matchable node")
-            while n in unmatchable or n.isMD():
+            while n in unmatchable or n.instr.isMD():
                 if not len(nodes):
+                    print("cant match any more")
                     return
                 n = nodes.pop()
             
             print("trying to match <<%s>>"%n)
             
             for i in instr:
-                m = i.match(n)
+                m = i.match(dag,n)
                 if m != None:
                     matches.append(m)
             
@@ -45,21 +46,7 @@ class InstructionSelector(object):
                 
             maxmatch = max(matches)
             print("found a match")
-            dag.removeNodes(maxmatch.remove)
-            dag.addNodes(maxmatch.new)
-            dag.recalculateEdges()
+            maxmatch.replace()
             
     
-
-
-
-
-
-
-
-
-
-
-
-
 
