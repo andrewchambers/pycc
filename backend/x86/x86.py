@@ -251,6 +251,7 @@ class X86(standardmachine.StandardMachine):
                 movins = X86MovI32()
                 eax = getRegisterByName('eax')
                 movins.assigned = [eax]
+                n.instr.assigned = eax
                 movins.read = n.instr.read
                 copy = SDNode(movins)
                 copy.ins = n.ins[0].outs
