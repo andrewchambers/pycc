@@ -14,7 +14,7 @@ class Variable(object):
         if self.lval:
             tstr += " lval"
         stars = "*"* self.pcount
-        return "(%s%s) %s" %(stars,tstr,self.name)
+        return "(%s%s) %s" %(tstr,stars,self.name)
     
 class I32(Variable):
     pass
@@ -55,6 +55,9 @@ class Instruction(object):
         return False
     
     def writesMem(self):
+        return False
+        
+    def isMD(self):
         return False
         
 class Dummy(Instruction):

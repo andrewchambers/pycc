@@ -1,8 +1,19 @@
 import ir
+import itertools
+
+
+class SDNode(object):
+    
+    def __init__(self,instr):
+        self.instr = instr
+        self.ins = []
+        self.outs = []
+
 
 class SelectionDag(object):
     
-    def __init__(self,block):
+    
+    def recalculateEdges(self):
         
         creators = {}
         users = {}
@@ -11,14 +22,15 @@ class SelectionDag(object):
         edges = []
         controledges = []
         
-        for i in block:
+        for i in self.nodes:
             nodes.append(i)
             for v in i.read:
                 if not v in users:
                     users[v] = set()
                 users[v].add(i)
         
-        for i in block:
+        
+        for i in self.nodes:
             for v in i.assigned:
                 creators[v] = i
         
@@ -36,13 +48,14 @@ class SelectionDag(object):
         
         lastMemWrite = None
         
-        for i in block:
+        for i in self.nodes:
             if i.readsMem():
                 if lastMemWrite != None:
                     controledges.append([lastMemWrite,i])
             
             if i.writesMem():
                 lastMemWrite = i
+        
         
         for n in nodes[:-1]:
             if len(n.assigned) == 0:
@@ -57,3 +70,42 @@ class SelectionDag(object):
         self.nodes = nodes
         self.edges = edges
         self.controledges = controledges
+    
+    def __init__(self,block):
+        
+        self.nodes = []
+        
+        for i in block:
+            self.nodes.append(i)
+        self.recalculateEdges()
+    
+    def getCreatorNode(self,var):
+        for e in self.edges:
+            if e[2] == var:
+                return e[0]
+    
+    def removeNodes(self,nodes):
+        self.nodes = [x for x in self.nodes if x not in nodes]
+    
+    def addNodes(self,nodes):
+        self.nodes = nodes + self.nodes
+    
+    def topological(self):
+        
+        alledges = self.edges + self.controledges
+        s = []
+        toprocess = [n for n in self.nodes]
+        
+        
+        while len(toprocess):
+            n = toprocess.pop()
+            match = True
+            for e in alledges:
+                if n == e[1]: #node has dependencies
+                    toprocess.insert(0,n)
+                    match = False
+                    break
+            if match:
+                s.append(n)
+                alledges = [e for e in alledges if e[0] != n]
+        return s

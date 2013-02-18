@@ -1,6 +1,8 @@
 
 
 int main() {
-    int i = 1;
-    return i * 5 + 3;
+    int a;
+    
+    
+    return a * 2 ;
 }

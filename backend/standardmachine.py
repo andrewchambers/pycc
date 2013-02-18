@@ -31,7 +31,9 @@ class StandardMachine(target.Target):
         
         for b in f:
             sd = selectiondag.SelectionDag(b)
-            dagvis.showSelDAG(sd)
             isel = instructionselector.InstructionSelector()
             isel.select(self,sd)
-
+            dagvis.showSelDAG(sd)
+    
+    def getInstructions(self):
+        raise Exception("unimplemented")
