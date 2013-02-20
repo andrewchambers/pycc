@@ -43,10 +43,10 @@ class StandardMachine(target.Target):
             dagvis.showSelDAG(sd)
             self.applyDagFixups(sd)
             dagvis.showSelDAG(sd)
-            isel.select(self,sd)
-            dagvis.showSelDAG(sd)
-            self.callingConventions(sd)
-            dagvis.showSelDAG(sd)
+            #isel.select(self,sd)
+            #dagvis.showSelDAG(sd)
+            #self.callingConventions(sd)
+            #dagvis.showSelDAG(sd)
     
     def applyDagFixups(self,dag):
         pass

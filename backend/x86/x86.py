@@ -229,34 +229,48 @@ class X86(standardmachine.StandardMachine):
         return registers
         
     def applyDagFixups(self,dag):
+        
         print("x86 fixups")
         newnodes = []
         for n in dag.nodes:
             if type(n.instr) == ir.Binop and n.instr.op == '+':
                 print("fixing up binop in DAG")
-                copy = SDNode(ir.Move(n.instr.assigned[0],n.instr.read[0]))
-                copy.ins = [n.ins[0]]
-                n.ins[0].outs[0] = copy
-                copy.outs = [n]
-                n.instr.read[0] = copy.instr.assigned[0]
-                n.ins[0] = copy
+                #add a,b,c
+                # -------
+                #copy a,b
+                #add a,a,c
+                copy = SDNode()
+                copy.instr = ir.Move(None,None)
+                
+                
+                a = n.outs[0].var
+                b = n.ins[0].var
+                
+                oldedge = n.ins[0].edge
+                port = oldedge.tail
+                oldedge.remove()
+                SDDataEdge(copy.outs[0],n.ins[0])
+                SDDataEdge(port,copy.ins[0])
+                
                 newnodes.append(copy)
-        dag.nodes += newnodes
-    
+                    
+        for n in newnodes:
+            dag.nodes.add(n)
     
     def callingConventions(self):
-        newnodes = []
-        for n in dag.nodes:
-            if type(n.instr) == ir.Ret:
-                movins = X86MovI32()
-                eax = getRegisterByName('eax')
-                movins.assigned = [eax]
-                n.instr.assigned = eax
-                movins.read = n.instr.read
-                copy = SDNode(movins)
-                copy.ins = n.ins[0].outs
-                n.ins[0].outs = [copy]
-                copy.outs = n.outs
-                n.ins = movins.outs
+        pass
+        #newnodes = []
+        #for n in dag.nodes:
+        #    if type(n.instr) == ir.Ret:
+        #        movins = X86MovI32()
+        #        eax = getRegisterByName('eax')
+        #        movins.assigned = [eax]
+        #        n.instr.assigned = eax
+        #        movins.read = n.instr.read
+        #        copy = SDNode(movins)
+        #        copy.ins = n.ins[0].outs
+        #        n.ins[0].outs = [copy]
+        #        copy.outs = n.outs
+        #        n.ins = movins.outs
                 
     
