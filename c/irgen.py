@@ -59,6 +59,20 @@ class IRGenerator(c_ast.NodeVisitor):
         self.curFunction.setEntryBlock(self.curBasicBlock)
         self.generic_visit(node)
     
+    def visit_FuncCall(self,node):
+        
+        op = ir.Call()
+        
+        for arg in node.args.exprs:
+            argvar = self.visit(arg)
+            op.read.append(argvar)
+        
+        ret = ir.I32()
+        op.assigned.append(ret)
+        self.curBasicBlock.append(op)
+        return ret
+        
+    
     def visit_FuncDecl(self,node):
         pass
     

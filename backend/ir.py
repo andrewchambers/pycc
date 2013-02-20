@@ -76,6 +76,10 @@ class Binop(Instruction):
         return "%s = %s %s %s"%(self.assigned[0],self.read[0],self.op,
                                     self.read[1])
 
+class Call(Instruction):
+    def __repr__(self):
+        return "call"
+
 class LoadGlobalAddr(Instruction):
     def __init__(self,res,sym):
         Instruction.__init__(self)

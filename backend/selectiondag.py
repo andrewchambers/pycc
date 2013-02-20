@@ -10,6 +10,8 @@ class SDDataEdge(object):
         
         self._head = head
         self._tail = tail
+        self.head.edge = self
+        self.tail.addEdge(self)
         self.var = self.tail.var
     
     @property
@@ -174,9 +176,7 @@ class SelectionDag(object):
                     raise Exception("block not in SSA")
                 head = node.ins[idx]
                 tail = ass[0][0].outs[ass[0][1]]
-                edge = SDDataEdge(head,tail)
-                head.edge = edge
-                tail.addEdge(edge)
+                SDDataEdge(head,tail)
 
         for n in self.nodes[:-1]:
             if len(n.outs) == 0:

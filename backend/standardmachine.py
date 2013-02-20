@@ -14,7 +14,7 @@ class Register(object):
     def __init__(self,name,sizes):
         self.name = name
         self.sizes = sizes
-    def __repr__(name):
+    def __repr__(self):
         return self.name
 
 class StandardMachine(target.Target):
@@ -45,8 +45,8 @@ class StandardMachine(target.Target):
             dagvis.showSelDAG(sd)
             #isel.select(self,sd)
             #dagvis.showSelDAG(sd)
-            #self.callingConventions(sd)
-            #dagvis.showSelDAG(sd)
+            self.callingConventions(sd)
+            dagvis.showSelDAG(sd)
     
     def applyDagFixups(self,dag):
         pass

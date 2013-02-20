@@ -195,6 +195,11 @@ class X86StoreI32(machineinstruction.MI):
     def asm(self):
         return "mov [%s], %s"%(self.read[0],self.read[1])
 
+class X86PushI32(machineinstruction.MI):
+    
+    def asm(self):
+        return "push %s"%(self.read[0])
+
 
 instructions = [
     AddI32,
@@ -204,6 +209,7 @@ instructions = [
     X86LoadConstantI32,
     X86LoadLocalAddr,
     X86StoreI32,
+#    X86PushI32,
 ]
 
 
@@ -242,35 +248,92 @@ class X86(standardmachine.StandardMachine):
                 copy = SDNode()
                 copy.instr = ir.Move(None,None)
                 
-                
                 a = n.outs[0].var
                 b = n.ins[0].var
                 
                 oldedge = n.ins[0].edge
                 port = oldedge.tail
                 oldedge.remove()
-                SDDataEdge(copy.outs[0],n.ins[0])
-                SDDataEdge(port,copy.ins[0])
+                e1 = SDDataEdge(n.ins[0],copy.outs[0])
+                e2 = SDDataEdge(copy.ins[0],port)
+                e1.var = a
+                e2.var = b
                 
                 newnodes.append(copy)
                     
         for n in newnodes:
             dag.nodes.add(n)
     
-    def callingConventions(self):
-        pass
-        #newnodes = []
-        #for n in dag.nodes:
-        #    if type(n.instr) == ir.Ret:
-        #        movins = X86MovI32()
-        #        eax = getRegisterByName('eax')
-        #        movins.assigned = [eax]
-        #        n.instr.assigned = eax
-        #        movins.read = n.instr.read
-        #        copy = SDNode(movins)
-        #        copy.ins = n.ins[0].outs
-        #        n.ins[0].outs = [copy]
-        #        copy.outs = n.outs
-        #        n.ins = movins.outs
-                
     
+    def fixReturns(self,dag):
+        
+        newnodes = []
+        for n in dag.nodes:
+            if type(n.instr) == ir.Ret:
+                ret = n
+                eax = getRegisterByName('eax')
+                oldvar = ret.ins[0].var
+                oldtail = ret.ins[0].edge.tail
+                ret.ins[0].edge.remove()
+                
+                copy = SDNode()
+                copy.instr =  ir.Move(eax,oldvar)
+                
+                e1 = SDDataEdge(copy.ins[0],oldtail)
+                e2 = SDDataEdge(ret.ins[0],copy.outs[0])
+                
+                e1.var = oldvar
+                e2.var = eax
+                
+                newnodes.append(copy)
+        
+        for n in newnodes:
+            dag.nodes.add(n)
+
+    def fixCalls(self,dag):
+        
+        newnodes = []
+        for n in dag.nodes:
+            if type(n.instr) == ir.Call:
+                call = n
+                eax = getRegisterByName('eax')
+                
+                prevPush = None
+                for inport in call.ins:
+                    outport = inport.edge.tail
+                    node = SDNode()
+                    newnodes.append(node)
+                    p = X86PushI32()
+                    v = inport.var
+                    inport.edge.remove()
+                    p.read = [None]
+                    node.instr = p
+                    e = SDDataEdge(node.ins[0],outport)
+                    e.var = v
+                    node.control.append(call)
+                    if prevPush != None:
+                        prevPush.control.append(node)
+                    prevPush = node
+                
+                if len(call.outs) :
+                    deps = [ x for x in call.outs[0].edges ]
+                    heads = [ x.head for x in call.outs[0].edges ]
+                    oldvars = [ h.var for h in heads]
+                    for e in deps:
+                        e.remove()
+                    copy = SDNode()
+                    copy.instr = ir.Move(None,None)
+                    e1 = SDDataEdge(copy.ins[0],call.outs[0])
+                    e1.var = eax
+                    for k,h in enumerate(heads):
+                        e2 = SDDataEdge(h,copy.outs[0])
+                        e2.var = oldvars[k]
+                    newnodes.append(copy)
+        
+        for n in newnodes:
+            dag.nodes.add(n)
+
+    
+    def callingConventions(self, dag):
+        self.fixReturns(dag)
+        self.fixCalls(dag)
