@@ -76,12 +76,13 @@ class X86MovI32(machineinstruction.MI):
         
         if len(node.ins) != 1:
             return None
-        
+            
         if type(node.instr.read[0]) != ir.I32:
             return None
         
         if type(node.instr.assigned[0]) != ir.I32:
             return None
+        
         
         def repl():
             mov = X86MovI32()
@@ -95,7 +96,7 @@ class X86MovI32(machineinstruction.MI):
         return "mov %s,%s"%(self.assigned[0],self.read[0])
 
 
-class AddI32(machineinstruction.MI):
+class X86AddI32(machineinstruction.MI):
     
     
     @staticmethod
@@ -111,11 +112,17 @@ class AddI32(machineinstruction.MI):
         if type(node.instr.assigned[0]) != ir.I32:
             return None
         
+        if type(node.instr.read[0]) != ir.I32:
+            return None
+            
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
         if node.instr.assigned[0] != node.instr.read[0]:
             return None
         
         def repl():
-            add = AddI32()
+            add = X86AddI32()
             add.assigned = node.instr.assigned
             add.read = node.instr.read
             node.instr = add
@@ -123,7 +130,7 @@ class AddI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "add %s,%s"%(self.assigned[0],self.read[0])
+        return "add %s,%s"%(self.assigned[0],self.read[1])
 
 class X86LoadLocalAddr(machineinstruction.MI):
     
@@ -202,8 +209,8 @@ class X86PushI32(machineinstruction.MI):
 
 
 instructions = [
-    AddI32,
-    MultI32,
+    X86AddI32,
+#    MultI32,
     X86MovI32,
     X86LoadI32,
     X86LoadConstantI32,
@@ -277,7 +284,10 @@ class X86(standardmachine.StandardMachine):
                 ret.ins[0].edge.remove()
                 
                 copy = SDNode()
-                copy.instr =  ir.Move(eax,oldvar)
+                instr = X86MovI32()
+                instr.read = [oldvar]
+                instr.assigned = [eax]
+                copy.instr = instr
                 
                 e1 = SDDataEdge(copy.ins[0],oldtail)
                 e2 = SDDataEdge(ret.ins[0],copy.outs[0])
@@ -322,7 +332,10 @@ class X86(standardmachine.StandardMachine):
                     for e in deps:
                         e.remove()
                     copy = SDNode()
-                    copy.instr = ir.Move(None,None)
+                    instr = X86MovI32()
+                    instr.read = [None]
+                    instr.assigned = [None]
+                    copy.instr = instr
                     e1 = SDDataEdge(copy.ins[0],call.outs[0])
                     e1.var = eax
                     for k,h in enumerate(heads):

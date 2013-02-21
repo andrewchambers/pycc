@@ -7,7 +7,10 @@ class MI(Instruction):
         return self.__class__.__name__
     
     def getDagDisplayText(self):
-        return self.asm()
+        return str(self)
     
     def isMD(self):
         return True
+    
+    def __repr__(self):
+        return self.asm()

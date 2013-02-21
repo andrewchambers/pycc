@@ -126,14 +126,20 @@ class SDNode(object):
     def instr(self, instr):
         
         self._instr = instr
-        self.ins = []
-        self.outs = []
-        self.control = []
-        for idx,v in enumerate(instr.assigned):
-            self.outs.append(SDOutPort(self,idx))
-            
-        for idx,v in enumerate(instr.read):
-            self.ins.append(SDInPort(self,idx))
+        if len(instr.read) == len(self.ins) and len(instr.assigned) == len(self.outs):
+            for i,port in enumerate(self.ins):
+                self._instr.read[i] = port.var
+            for i,port in enumerate(self.outs):
+                self._instr.assigned[i] = port.var
+        else:
+            self.ins = []
+            self.outs = []
+            self.control = []
+            for idx,v in enumerate(instr.assigned):
+                self.outs.append(SDOutPort(self,idx))
+                
+            for idx,v in enumerate(instr.read):
+                self.ins.append(SDInPort(self,idx))
         
     
     
@@ -189,21 +195,27 @@ class SelectionDag(object):
     
     
     def topological(self):
-        pass
-        #s = []
-        #toprocess = [n for n in self.nodes]
-        #while len(toprocess):
-        #    n = toprocess.pop()
-        #    match = True
-        #    for other in self.nodes:
-        #        if other in s:
-        #            continue
-        #        if n in other.outs or n in other.control:
-        #            match = False
-        #            toprocess.insert(0,n)
-        #            break
-        #        
-        #    if match:
-        #        s.append(n)
-        #return s
+        s = []
+        toprocess = [n for n in self.nodes]
+        while len(toprocess):
+            n = toprocess.pop()
+            match = True
+            for other in self.nodes:
+                if other in s:
+                    continue
+                
+                alledges = []
+                for p in other.outs:
+                    for e in p.edges:
+                        alledges.append(e)
+                
+                otherends = [ edge.head.parent for edge in alledges]
+                if n in otherends or n in other.control:
+                    match = False
+                    toprocess.insert(0,n)
+                    break
+                
+            if match:
+                s.append(n)
+        return s
 
