@@ -41,6 +41,7 @@ class MultI32(machineinstruction.MI):
 class X86LoadConstantI32(machineinstruction.MI):
     
     def __init__(self,const):
+        machineinstruction.MI.__init__(self)
         self.const = const
     
     @staticmethod

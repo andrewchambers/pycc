@@ -11,7 +11,6 @@ from passes import unused
 from passes import branchreplace
 
 import instructionselector
-import livenessanalysis
 import interference
 
 class Register(object):
@@ -41,9 +40,6 @@ class StandardMachine(target.Target):
             
         irvis.showFunction(f)
         
-        la = livenessanalysis.LivenessAnalysis(f)
-        ig = interference.InterferenceGraph(la)
-        interferencevis.showInterferenceGraph(ig)
         
         for b in f:
             sd = selectiondag.SelectionDag(b)
@@ -59,6 +55,8 @@ class StandardMachine(target.Target):
             b.opcodes = newblockops
         
         irvis.showFunction(f)
+        ig = interference.InterferenceGraph(f)
+        interferencevis.showInterferenceGraph(ig)
     
     def applyDagFixups(self,dag):
         pass
