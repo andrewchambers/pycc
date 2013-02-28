@@ -25,7 +25,7 @@ class StandardMachine(target.Target):
     def translateFunction(self,f,ofile):
         
         irvis.showFunction(f)
-        while True:
+        while False:
             #irvis.showFunction(f)
             if jumpfix.JumpFix().runOnFunction(f):
                 continue
