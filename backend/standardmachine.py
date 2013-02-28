@@ -20,7 +20,7 @@ class Register(object):
     def __repr__(self):
         return self.name
     
-    def isPhysicalRegister(self):
+    def isPhysical(self):
         return True
 
 class StandardMachine(target.Target):
@@ -42,7 +42,8 @@ class StandardMachine(target.Target):
             break
             
         irvis.showFunction(f)
-        
+        ig = interference.InterferenceGraph(f)
+        interferencevis.showInterferenceGraph(ig)
         
         for b in f:
             sd = selectiondag.SelectionDag(b)
@@ -58,8 +59,7 @@ class StandardMachine(target.Target):
             b.opcodes = newblockops
         
         irvis.showFunction(f)
-        ig = interference.InterferenceGraph(f)
-        interferencevis.showInterferenceGraph(ig)
+        
     
     def applyDagFixups(self,dag):
         pass

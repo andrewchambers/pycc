@@ -9,7 +9,7 @@ class Variable(object):
         self.lval = False
         self.pcount = 0
     
-    def isPhysicalRegister(self):
+    def isPhysical(self):
         return False
     
     def __repr__(self):
