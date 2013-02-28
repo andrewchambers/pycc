@@ -8,7 +8,10 @@ class Variable(object):
         self.name = "v%d"%counter
         self.lval = False
         self.pcount = 0
-        
+    
+    def isPhysicalRegister(self):
+        return False
+    
     def __repr__(self):
         tstr = "%s" % self.__class__.__name__
         if self.lval:

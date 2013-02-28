@@ -19,6 +19,9 @@ class Register(object):
         self.sizes = sizes
     def __repr__(self):
         return self.name
+    
+    def isPhysicalRegister(self):
+        return True
 
 class StandardMachine(target.Target):
     
