@@ -27,8 +27,11 @@ class StandardMachine(target.Target):
     
     def translateFunction(self,f,ofile):
         
-        irvis.showFunction(f)
-        while True:
+        if self.args.show_all or self.args.show_preopt_function:
+            irvis.showFunction(f)
+        
+        opt = self.args.iropt
+        while opt:
             #irvis.showFunction(f)
             if jumpfix.JumpFix().runOnFunction(f):
                 continue
@@ -40,25 +43,28 @@ class StandardMachine(target.Target):
                 continue
             
             break
-            
-        irvis.showFunction(f)
+        
+        if self.args.show_all or self.args.show_postopt_function:
+            irvis.showFunction(f)
+
         ig = interference.InterferenceGraph(f)
         interferencevis.showInterferenceGraph(ig)
         
         for b in f:
             sd = selectiondag.SelectionDag(b)
             isel = instructionselector.InstructionSelector()
-            dagvis.showSelDAG(sd)
+            if self.args.show_all or self.args.show_selection_dag:
+                dagvis.showSelDAG(sd)
             self.applyDagFixups(sd)
-            dagvis.showSelDAG(sd)
             self.callingConventions(sd)
-            dagvis.showSelDAG(sd)
             isel.select(self,sd)
-            dagvis.showSelDAG(sd)
+            if self.args.show_all or self.args.show_md_selection_dag:
+                dagvis.showSelDAG(sd)
             newblockops = [node.instr for node in sd.topological()]
             b.opcodes = newblockops
         
-        irvis.showFunction(f)
+        if self.args.show_all or self.args.show_md_function:
+            irvis.showFunction(f)
         
     
     def applyDagFixups(self,dag):

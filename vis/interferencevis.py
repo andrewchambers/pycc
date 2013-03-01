@@ -6,22 +6,15 @@ def showInterferenceGraph(ig):
     
     counter = 0
     nodenames = {}
-    for v in ig.interference:
+    for v in ig.nodes:
         counter += 1
         nodenames[v] = "node%d" % counter
-    
-    pairs = []
-    for v in ig.interference:
-        for other in ig.interference[v]:
-            pair = set([v,other])
-            if pair not in pairs:
-                pairs.append(pair)
             
     with gv.GraphViz() as g:
         g.write("graph g {\n")
-        for v in ig.interference:
+        for v in ig.nodes:
             g.write("%s [label=\"%s\"];\n"%(nodenames[v],str(v)))
-        for v,other in pairs:
+        for v,other in ig.interference:
             g.write("%s -- %s;\n"%(nodenames[v],nodenames[other]))
         g.write("}\n")
         g.finalize()

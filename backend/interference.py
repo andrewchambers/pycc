@@ -6,96 +6,66 @@ class InterferenceGraph(object):
     def __init__(self,function):
         
         
-        blocklist = [block for block in function]
+        blockstates = {}
         
-        assigned = set()
-        assignedblock = {}
-        readinstrs = {}
+        #init the gen-kill sets
+        for block in function:
+            gen = set()
+            kill = set()
+            for instr in block:
+                for v in instr.read:
+                    if v not in kill:
+                        gen.add(v)
+                for v in instr.assigned:
+                    kill.add(v)
+            blockstates[block] = [gen,kill,set(),set()]
         
-        for b in blocklist:
-            for i in b:
-                for v in i.read:
-                    if not v.isPhysical():
-                        if v not in readinstrs:
-                            readinstrs[v] = []
-                        readinstrs[v].append(i)
-                for v in i.assigned:
-                    if not v.isPhysical():
-                        assigned.add(v)
-                        if v in assignedblock and assignedblock[v] != b:
-                            raise Exception("Internal bug, non ssa code detected")
-                        assignedblock[v] = b
+        #init the sucessor table
+        successors = {}
+        for block in function:
+            successors[block] = list(block.getReachableBlocks())
         
-        assigned = list(assigned)
-        vartoindex = {}
-        for k,v in enumerate(assigned):
-            vartoindex[v] = k
-        
-        edges = [ (b,s) for b in blocklist for s in b[-1].getSuccessors() ]
-        
-        reachability = {}
-        for b in blocklist:
-            for b2 in blocklist:
-                if b not in reachability:
-                    reachability[b] = {}
-                reachability[b][b2] = [False]*len(assigned)
-        
-        
-        for start,end in edges:
-            for index,v in enumerate(assigned):
-                if assignedblock[v] == end:
-                    reachability[start][end][index] = False
+        changed = True
+        while changed:
+            changed = False
+            for block in blockstates:
+                newout = set()
+                newin = set()
+                blockstate = blockstates[block]
+                if len(successors[block]) == 0:
+                    newout = set()
                 else:
-                    reachability[start][end][index] = True
+                    for s in successors[block]:
+                        newout = newout.union(blockstate[2])
+                
+                newin = blockstate[0].union(newout - blockstate[1])
+                
+                if blockstate[2] != newin or blockstate[3] != newout:
+                    blockstate[2] = newin
+                    blockstate[3] = newout
+                    changed = True
+                
+        liveness = []
         
-        #this could be a matrix
-        #Floyd-Warshall algorithm
-        for k in blocklist:
-            for i in blocklist:
-                for j in blocklist:
-                    for index in range(len(assigned)):
-                        reachability[i][j][index] = reachability[i][j][index] or (reachability[i][k][index] and reachability[k][j][index])
+        for block in blockstates:
+            
+            live = blockstates[block][3]
+            #work backwards from liveout
+            for instr in reversed(block):
+                
+                liveness.append(live.copy())
+                
+                for v in instr.read:
+                    live.add(v)
+                
+                for v in instr.assigned:
+                    live.remove(v)
+                
+        self.nodes = function.variables
+        self.interference = []
+        for varset in liveness:
+            for edge in itertools.combinations(varset,2):
+                edge = set(edge)
+                if edge not in self.interference:
+                    self.interference.append(edge)
         
-        #print reachability
-        
-        instrtoblock = {}
-        
-        for b in blocklist:
-            for i in b:
-                instrtoblock[i] = b
-        
-        def instructionReachable(start,end,var):
-            if start == end:
-                return True
-            b1 = instrtoblock[start]
-            b2 = instrtoblock[end]
-            if b1 == b2:
-                reachedstart = False
-                for instr in b1:
-                    if var in instr.assigned: #can be a precomputer array
-                        return False
-                    if instr == end:    
-                        if not reachedstart:
-                            return False
-                        else:
-                            return True
-                    if instr == start:
-                        reachedstart = True
-            else:
-                return reachability[b1][b2][vartoindex[var]]
-        
-        liveness = {}
-        
-        for var in assigned:
-            for b in blocklist:
-                for i in b:
-                    liveness[i] = set([])
-                    for iread in readinstrs[v]:
-                        if instructionReachable(i,iread,var):
-                            liveness[i].add(var)
-                            break
-        for i in liveness:
-            print i
-            print "\t %s"%liveness[i]
-        #self.liveness = liveness
-                    

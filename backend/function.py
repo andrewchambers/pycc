@@ -1,3 +1,4 @@
+import itertools
 
 class Function(object):
     def __init__(self,name):
@@ -10,18 +11,18 @@ class Function(object):
     def getName(self):
         return self.name
     
-    def __iter__(self):
-        def generator():
-            visited = set()
-            stack = [self.entry]
-            while (len(stack)):
-                curblock = stack.pop()
-                if curblock in visited:
-                    continue
-                visited.add(curblock)
-                yield curblock
-                if len(curblock):
-                    for b in curblock[-1].getSuccessors():
-                        stack.append(b)
+    @property
+    def variables(self):
+        ret = set()
+        for block in self:
+            for instr in block:
+                for v in itertools.chain(instr.read,instr.assigned):
+                    ret.add(v)
+        return ret
         
-        return generator().__iter__()
+    @variables.setter
+    def variables(self, value):
+        raise Exception("bug - cannot set variables of a function")
+        
+    def __iter__(self):
+        return self.entry.getReachableBlocks().__iter__()

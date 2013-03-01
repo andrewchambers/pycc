@@ -34,3 +34,21 @@ class BasicBlock(object):
         if len(self) == 0 or (not self[-1].isTerminator() and not self[-1].isBranch()):
             return True
         return False
+    
+    
+    def getReachableBlocks(self):
+        def generator():
+            visited = set()
+            stack = [self]
+            while (len(stack)):
+                curblock = stack.pop()
+                if curblock in visited:
+                    continue
+                visited.add(curblock)
+                yield curblock
+                if len(curblock):
+                    for b in curblock[-1].getSuccessors():
+                        stack.append(b)
+        return generator()
+    
+    
