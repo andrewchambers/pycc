@@ -12,6 +12,7 @@ from passes import branchreplace
 
 import instructionselector
 import interference
+import registerallocator
 
 class Register(object):
     def __init__(self,name,sizes):
@@ -47,8 +48,6 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_postopt_function:
             irvis.showFunction(f)
 
-        ig = interference.InterferenceGraph(f)
-        interferencevis.showInterferenceGraph(ig)
         
         for b in f:
             sd = selectiondag.SelectionDag(b)
@@ -62,6 +61,13 @@ class StandardMachine(target.Target):
                 dagvis.showSelDAG(sd)
             newblockops = [node.instr for node in sd.topological()]
             b.opcodes = newblockops
+        
+        ig = interference.InterferenceGraph(f)
+        interferencevis.showInterferenceGraph(ig)
+        
+        ra = registerallocator.RegisterAllocator()
+        ra.allocate(f,ig)
+        
         
         if self.args.show_all or self.args.show_md_function:
             irvis.showFunction(f)

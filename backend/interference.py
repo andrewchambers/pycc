@@ -68,4 +68,11 @@ class InterferenceGraph(object):
                 edge = set(edge)
                 if edge not in self.interference:
                     self.interference.append(edge)
-        
+    
+    def getInterference(self,v):
+        for s in self.interference:
+            if v in s:
+                ret = s.copy()
+                ret.remove(v)
+                return ret
+        raise Exception("Unreachable!")
