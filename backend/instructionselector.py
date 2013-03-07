@@ -22,7 +22,7 @@ class InstructionSelector(object):
         unmatchable = set()
         while True:
             print("topological sort")
-            nodes = dag.topological()
+            nodes = dag.ordered()
             matches = []
             n = nodes.pop()
             print("finding a matchable node")

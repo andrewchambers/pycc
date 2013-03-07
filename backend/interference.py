@@ -59,20 +59,35 @@ class InterferenceGraph(object):
                     live.add(v)
                 
                 for v in instr.assigned:
-                    live.remove(v)
+                    if v in live:
+                        live.remove(v)
                 
         self.nodes = function.variables
+        #XXX rename to interference edges
         self.interference = []
         for varset in liveness:
             for edge in itertools.combinations(varset,2):
                 edge = set(edge)
                 if edge not in self.interference:
                     self.interference.append(edge)
+        
+        moveedges = []
+        
+        for b in function:
+            for i in b:
+                if i.isMove():
+                    self.moveedges.append(set([i.assigned[0],i.read[0]]))
+        
+        self.moveedges = moveedges
     
-    def getInterference(self,v):
-        for s in self.interference:
-            if v in s:
-                ret = s.copy()
-                ret.remove(v)
-                return ret
-        raise Exception("Unreachable!")
+    def getInterferes(self,n):
+        ret = set()
+        for edge in self.interference:
+            if n in edge:
+                new = edge.copy()
+                new.remove(n)
+                for other in new:
+                    ret.add(other)
+        return ret
+                
+                

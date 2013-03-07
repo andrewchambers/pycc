@@ -116,6 +116,7 @@ class SDNode(object):
         self.ins = []
         self.outs = []
         self.control = []
+        self.rcontrol = []
         self._instr = None
     
     @property
@@ -135,6 +136,7 @@ class SDNode(object):
             self.ins = []
             self.outs = []
             self.control = []
+            self.rcontrol = []
             for idx,v in enumerate(instr.assigned):
                 self.outs.append(SDOutPort(self,idx))
                 
@@ -171,6 +173,7 @@ class SelectionDag(object):
             if node.instr.readsMem():
                 if lastWrite != None:
                     node.control.append(lastWrite)
+                    lastWrite.rcontrol.append(node)
             if node.instr.writesMem():
                 lastWrite = node
         
@@ -185,37 +188,35 @@ class SelectionDag(object):
                 SDDataEdge(head,tail)
 
         for n in self.nodes[:-1]:
-            if len(n.outs) == 0:
+            target = False
+            for port in n.outs:
+                if len(port.edges) != 0:
+                    target = True
+            if target == False:
                 n.control.append(self.nodes[-1])
+                self.nodes[-1].rcontrol.append(n)
+                
         
-        #we dont need order anymore
-        self.nodes = set(self.nodes)
+        self.root = self.nodes[-1]
     
+    def ordered(self):
+        ret = []
+        start = self.root
+        visited = set()
+        self._ordered(start,visited,ret)
+        return ret
+        
+    def _ordered(self,node,visited,ret):
+        if node in visited:
+            return
+        visited.add(node)
+        for inport in node.ins:
+            prevnode = inport.edge.tail.parent
+            self._ordered(prevnode,visited,ret)
+        
+        for prevnode in node.rcontrol:
+            self._ordered(prevnode,visited,ret)
+        
+        ret.append(node)
     
-    
-    
-    def topological(self):
-        s = []
-        toprocess = [n for n in self.nodes]
-        while len(toprocess):
-            n = toprocess.pop()
-            match = True
-            for other in self.nodes:
-                if other in s:
-                    continue
-                
-                alledges = []
-                for p in other.outs:
-                    for e in p.edges:
-                        alledges.append(e)
-                
-                otherends = [ edge.head.parent for edge in alledges]
-                if n in otherends or n in other.control:
-                    match = False
-                    toprocess.insert(0,n)
-                    break
-                
-            if match:
-                s.append(n)
-        return s
 

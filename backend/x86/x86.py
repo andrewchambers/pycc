@@ -208,6 +208,17 @@ class X86PushI32(machineinstruction.MI):
     def asm(self):
         return "push %s"%(self.read[0])
 
+class X86StackLoadI32(machineinstruction.MI):
+    
+    def asm(self):
+        return "mov %s, [ebp + XXX]"%(self.assigned[0])
+
+
+class X86StackSaveI32(machineinstruction.MI):
+    
+    def asm(self):
+        return "mov [ebp + XXX], %s "%(self.read[0])
+
 
 instructions = [
     X86AddI32,
@@ -241,7 +252,19 @@ class X86(standardmachine.StandardMachine):
         
     def getRegisters(self):
         return registers
+    
+    def getSpillCode(self,reg,ss1,ss2):
         
+        start = [X86StackSaveI32(),X86StackLoadI32()]
+        end = [X86StackSaveI32(),X86StackLoadI32()]
+        
+        start[0].read = [reg]
+        start[1].assigned = [reg]
+        end[0].read = [reg]
+        end[1].assigned = [reg]
+        
+        return start,end
+    
     def applyDagFixups(self,dag):
         
         print("x86 fixups")
@@ -270,7 +293,7 @@ class X86(standardmachine.StandardMachine):
                 newnodes.append(copy)
                     
         for n in newnodes:
-            dag.nodes.add(n)
+            dag.nodes.append(n)
     
     
     def fixReturns(self,dag):
@@ -299,7 +322,7 @@ class X86(standardmachine.StandardMachine):
                 newnodes.append(copy)
         
         for n in newnodes:
-            dag.nodes.add(n)
+            dag.nodes.append(n)
 
     def fixCalls(self,dag):
         
@@ -345,8 +368,8 @@ class X86(standardmachine.StandardMachine):
                     newnodes.append(copy)
         
         for n in newnodes:
-            dag.nodes.add(n)
-
+            dag.nodes.append(n)
+    
     
     def callingConventions(self, dag):
         self.fixReturns(dag)

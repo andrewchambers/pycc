@@ -46,6 +46,13 @@ class Instruction(object):
     def isBranch(self):
         return len(self.getSuccessors()) > 0
     
+    def swapVar(self,old,new):
+        for arr in [self.read,self.assigned]:
+            for k,v in enumerate(arr):
+                if v is old:
+                    arr[k] = new
+        
+    
     def getSuccessors(self):
         return self.successors
         
@@ -62,7 +69,9 @@ class Instruction(object):
         
     def isMD(self):
         return False
-        
+    
+    def isMove(self):
+        return False
 
 class Binop(Instruction):
     def __init__(self,op,res,l,r):
@@ -181,6 +190,9 @@ class Move(Instruction):
         Instruction.__init__(self)
         self.read = [r]
         self.assigned = [l]
-        
+    
+    def isMove(self):
+        return True
+    
     def __repr__(self):
         return "%s = Move %s" % (self.assigned[0],self.read[0])

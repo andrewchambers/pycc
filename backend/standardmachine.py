@@ -17,7 +17,17 @@ import registerallocator
 class Register(object):
     def __init__(self,name,sizes):
         self.name = name
-        self.sizes = sizes
+        self.sizes = set(sizes)
+    
+    def canContain(self,t):
+        if type(t) == type(self):
+            return True
+        
+        if t in self.sizes:
+            return True
+        
+        return False
+    
     def __repr__(self):
         return self.name
     
@@ -25,6 +35,7 @@ class Register(object):
         return True
 
 class StandardMachine(target.Target):
+    
     
     def translateFunction(self,f,ofile):
         
@@ -47,7 +58,6 @@ class StandardMachine(target.Target):
         
         if self.args.show_all or self.args.show_postopt_function:
             irvis.showFunction(f)
-
         
         for b in f:
             sd = selectiondag.SelectionDag(b)
@@ -59,15 +69,14 @@ class StandardMachine(target.Target):
             isel.select(self,sd)
             if self.args.show_all or self.args.show_md_selection_dag:
                 dagvis.showSelDAG(sd)
-            newblockops = [node.instr for node in sd.topological()]
+            newblockops = [node.instr for node in sd.ordered()]
             b.opcodes = newblockops
         
         ig = interference.InterferenceGraph(f)
         interferencevis.showInterferenceGraph(ig)
         
-        ra = registerallocator.RegisterAllocator()
+        ra = registerallocator.RegisterAllocator(self)
         ra.allocate(f,ig)
-        
         
         if self.args.show_all or self.args.show_md_function:
             irvis.showFunction(f)
@@ -87,3 +96,7 @@ class StandardMachine(target.Target):
     
     def getInstructions(self):
         raise Exception("unimplemented")
+    
+    def getPossibleRegisters(self,v):
+        t = type(v)
+        return filter(lambda x : x.canContain(t),self.getRegisters())
