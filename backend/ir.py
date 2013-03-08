@@ -2,6 +2,7 @@
 counter = 0
 
 class Variable(object):
+    
     def __init__(self):
         global counter
         counter += 1
@@ -19,8 +20,13 @@ class Variable(object):
         stars = "*"* self.pcount
         return "(%s%s) %s" %(tstr,stars,self.name)
     
+    def getSize(self):
+        raise Exception("no size avaliable")
+    
 class I32(Variable):
-    pass
+    
+    def getSize(self):
+        return 4
 
 class Constant(object):
     def __repr__(self):
@@ -115,7 +121,12 @@ class LoadLocalAddr(Instruction):
         self.assigned = [res]
         self.sym = sym
     def __repr__(self):
-        return "%s = LoadLocalAddr %s" % (self.assigned[0],self.sym.name)
+        if self.sym.slot.offset == None:
+            offset = self.sym.name
+        else:
+            offset = self.sym.slot.offset
+            
+        return "%s = LoadLocalAddr %s" % (self.assigned[0],offset)
         
         
 class LoadConstant(Instruction):

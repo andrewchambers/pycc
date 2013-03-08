@@ -53,10 +53,11 @@ class InterferenceGraph(object):
             #work backwards from liveout
             for instr in reversed(block):
                 
-                liveness.append(live.copy())
-                
                 for v in instr.read:
                     live.add(v)
+                
+                liveness.append(live.copy())
+                
                 
                 for v in instr.assigned:
                     if v in live:

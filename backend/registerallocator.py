@@ -70,7 +70,6 @@ class RegisterAllocator(object):
             idx = 0
             while idx != len(b):
                 instr = b[idx]
-                print instr
                 tospill = filter(lambda x : x.isPhysical() == False, itertools.chain(instr.read,instr.assigned))
                 for spillvar in tospill:
                     possible = set(self.target.getPossibleRegisters(spillvar)) - set(instr.read)

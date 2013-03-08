@@ -118,6 +118,7 @@ class IRGenerator(c_ast.NodeVisitor):
             elif type(sym) == symtab.Param:
                 op = ir.LoadParamAddr(v,sym)
             elif type(sym) == symtab.Local:
+                self.curFunction.addStackSlot(sym.slot)
                 op = ir.LoadLocalAddr(v,sym)
             else:
                 raise Exception("unknown symbol type")
@@ -244,6 +245,7 @@ class IRGenerator(c_ast.NodeVisitor):
         elif type(sym) == symtab.Param:
             op = ir.LoadParamAddr(v,sym)
         elif type(sym) == symtab.Local:
+            self.curFunction.addStackSlot(sym.slot)
             op = ir.LoadLocalAddr(v,sym)
         else:
             raise Exception("unknown symbol type")

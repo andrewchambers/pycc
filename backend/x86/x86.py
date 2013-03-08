@@ -146,12 +146,85 @@ class X86LoadLocalAddr(machineinstruction.MI):
         def repl():
             lla = X86LoadLocalAddr()
             lla.assigned = node.instr.assigned
+            lla.sym = node.instr.sym
             node.instr = lla
+            
         
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mov %s, ebp + XXX "%(self.assigned[0])
+        r = self.assigned[0]
+        return "mov %s, ebp + %s\n "%(r,self.sym.slot.offset)
+
+class X86LoadLocalI32(machineinstruction.MI):
+    
+    
+    @staticmethod
+    def match(dag,node):
+        
+        
+        if type(node.instr) != ir.Deref:
+            return None
+        
+        loadAddr = node.ins[0].edge.tail.parent
+        
+        
+        if type(loadAddr.instr) != ir.LoadLocalAddr:
+            return None
+        
+        
+        def repl():
+            
+            newnode = SDNode()
+            lla = X86LoadLocalI32()
+            lla.assigned = node.instr.assigned
+            lla.sym = loadAddr.instr.sym
+            newnode.instr = lla
+            
+            oldedges = list(node.outs[0].edges)
+            for edge in oldedges:
+                edge.tail = newnode.outs[0]
+            
+            
+            
+        
+        return InstructionMatch(repl,2)
+
+    def asm(self):
+        r = self.assigned[0]
+        return "mov %s, [ebp + %s]\n "%(r,self.sym.slot.offset)
+
+
+class X86StoreLocalI32(machineinstruction.MI):
+    
+    
+    @staticmethod
+    def match(dag,node):
+        
+        if type(node.instr) != ir.Store:
+            return None
+        
+        loadAddr = node.ins[0].edge.tail.parent
+        
+        
+        if type(loadAddr.instr) != ir.LoadLocalAddr:
+            return None
+        
+        oldsourceport = node.ins[1].edge.tail
+        
+        def repl():
+            sla = X86StoreLocalI32()
+            sla.read = [None]
+            sla.sym = loadAddr.instr.sym
+            node.ins[1].edge.remove()
+            node.instr = sla
+            SDDataEdge(node.ins[0],oldsourceport)
+        return InstructionMatch(repl,2)
+
+    def asm(self):
+        r = self.read[0]
+        return "mov [ebp + %s], %s\n"%(self.sym.slot.offset,r)
+
 
 class X86LoadI32(machineinstruction.MI):
     
@@ -226,8 +299,10 @@ instructions = [
     X86MovI32,
     X86LoadI32,
     X86LoadConstantI32,
+    X86LoadLocalI32,
     X86LoadLocalAddr,
-    X86StoreI32,
+    X86StoreLocalI32,
+#    X86StoreI32,
 #    X86PushI32,
 ]
 

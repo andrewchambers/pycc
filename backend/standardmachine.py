@@ -78,6 +78,8 @@ class StandardMachine(target.Target):
         ra = registerallocator.RegisterAllocator(self)
         ra.allocate(f,ig)
         
+        f.resolveStack()
+        
         if self.args.show_all or self.args.show_md_function:
             irvis.showFunction(f)
         

@@ -154,13 +154,14 @@ class SelectionDag(object):
         
         users = {}
         assigners = {}
-        self.nodes = []
         
         lastWrite = None
         
+        nodes = []
+        
         for instr in block:
             node = SDNode()
-            self.nodes.append(node)
+            nodes.append(node)
             node.instr = instr
         
             for idx,v in enumerate(instr.assigned):
@@ -169,15 +170,15 @@ class SelectionDag(object):
                 assigners[v].append([node,idx])
             
         
-        for node in self.nodes:
+        for node in nodes:
             if node.instr.readsMem():
                 if lastWrite != None:
-                    node.control.append(lastWrite)
-                    lastWrite.rcontrol.append(node)
+                    lastWrite.control.append(node)
+                    node.rcontrol.append(lastWrite)
             if node.instr.writesMem():
                 lastWrite = node
         
-        for node in self.nodes:
+        for node in nodes:
             instr = node.instr
             for idx,v in enumerate(instr.read):
                 ass = assigners[v]
@@ -187,17 +188,27 @@ class SelectionDag(object):
                 tail = ass[0][0].outs[ass[0][1]]
                 SDDataEdge(head,tail)
 
-        for n in self.nodes[:-1]:
+        for n in nodes[:-1]:
             target = False
             for port in n.outs:
                 if len(port.edges) != 0:
                     target = True
             if target == False:
-                n.control.append(self.nodes[-1])
-                self.nodes[-1].rcontrol.append(n)
+                n.control.append(nodes[-1])
+                nodes[-1].rcontrol.append(n)
                 
         
-        self.root = self.nodes[-1]
+        self.root = nodes[-1]
+    
+    
+    @property
+    def nodes(self):
+        return self.ordered()
+
+    @nodes.setter
+    def nodes(self, nodes):
+        raise Exception("cant change nodes directly, only modify edges")
+    
     
     def ordered(self):
         ret = []
@@ -210,12 +221,14 @@ class SelectionDag(object):
         if node in visited:
             return
         visited.add(node)
+        
+        for prevnode in node.rcontrol:
+            self._ordered(prevnode,visited,ret)
+        
         for inport in node.ins:
             prevnode = inport.edge.tail.parent
             self._ordered(prevnode,visited,ret)
         
-        for prevnode in node.rcontrol:
-            self._ordered(prevnode,visited,ret)
         
         ret.append(node)
     
