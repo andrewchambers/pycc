@@ -28,9 +28,6 @@ class Function(object):
     def setEntryBlock(self,entry):
         self.entry = entry
     
-    def getName(self):
-        return self.name
-    
     @property
     def variables(self):
         ret = set()

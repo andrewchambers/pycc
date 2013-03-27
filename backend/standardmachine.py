@@ -83,6 +83,17 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_md_function:
             irvis.showFunction(f)
         
+    def outputModule(self,m,ofile):
+        for f in m:
+            self.outputFunction(f,ofile)
+    
+    def outputFunction(self,f,ofile):
+        ofile.write(".global %s\n" % f.name)
+        ofile.write("_%s:\n" % f.name)
+        
+    
+    def linearizeFunction(self,f):
+        pass
     
     def applyDagFixups(self,dag):
         pass
@@ -102,3 +113,4 @@ class StandardMachine(target.Target):
     def getPossibleRegisters(self,v):
         t = type(v)
         return filter(lambda x : x.canContain(t),self.getRegisters())
+    
