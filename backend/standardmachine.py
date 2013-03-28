@@ -1,18 +1,116 @@
 import target
-import dag
+import selectiondag
 
-import vis
-import vis.dagvis
+from vis import irvis
+from vis import dagvis
+from vis import interferencevis
+
+from passes import jumpfix
+from passes import blockmerge
+from passes import unused
+from passes import branchreplace
+
+import instructionselector
+import interference
+import registerallocator
+
+class Register(object):
+    def __init__(self,name,sizes):
+        self.name = name
+        self.sizes = set(sizes)
+    
+    def canContain(self,t):
+        if type(t) == type(self):
+            return True
+        
+        if t in self.sizes:
+            return True
+        
+        return False
+    
+    def __repr__(self):
+        return self.name
+    
+    def isPhysical(self):
+        return True
 
 class StandardMachine(target.Target):
     
-    def translate(self,module,ofile):
-        
-        for f in module:
-            self.translateFunction(f,ofile)
     
     def translateFunction(self,f,ofile):
         
+        if self.args.show_all or self.args.show_preopt_function:
+            irvis.showFunction(f)
+        
+        opt = self.args.iropt
+        while opt:
+            #irvis.showFunction(f)
+            if jumpfix.JumpFix().runOnFunction(f):
+                continue
+            if blockmerge.BlockMerge().runOnFunction(f):
+                continue
+            if unused.UnusedVars().runOnFunction(f):
+                continue
+            if branchreplace.BranchReplace().runOnFunction(f):
+                continue
+            
+            break
+        
+        if self.args.show_all or self.args.show_postopt_function:
+            irvis.showFunction(f)
+        
         for b in f:
-            insDag = dag.DAG(b)
-            vis.dagvis.DAG2Text(insDag)
+            sd = selectiondag.SelectionDag(b)
+            isel = instructionselector.InstructionSelector()
+            if self.args.show_all or self.args.show_selection_dag:
+                dagvis.showSelDAG(sd)
+            self.applyDagFixups(sd)
+            self.callingConventions(sd)
+            isel.select(self,sd)
+            if self.args.show_all or self.args.show_md_selection_dag:
+                dagvis.showSelDAG(sd)
+            newblockops = [node.instr for node in sd.ordered()]
+            b.opcodes = newblockops
+        
+        ig = interference.InterferenceGraph(f)
+        interferencevis.showInterferenceGraph(ig)
+        
+        ra = registerallocator.RegisterAllocator(self)
+        ra.allocate(f,ig)
+        
+        f.resolveStack()
+        
+        if self.args.show_all or self.args.show_md_function:
+            irvis.showFunction(f)
+        
+    def outputModule(self,m,ofile):
+        for f in m:
+            self.outputFunction(f,ofile)
+    
+    def outputFunction(self,f,ofile):
+        ofile.write(".global %s\n" % f.name)
+        ofile.write("_%s:\n" % f.name)
+        
+    
+    def linearizeFunction(self,f):
+        pass
+    
+    def applyDagFixups(self,dag):
+        pass
+    
+    def callingConventions(self,dag):
+        pass
+    
+    def prologAndEpilog(self,dag):
+        pass
+    
+    def getRegisters(self):
+        return []
+    
+    def getInstructions(self):
+        raise Exception("unimplemented")
+    
+    def getPossibleRegisters(self,v):
+        t = type(v)
+        return filter(lambda x : x.canContain(t),self.getRegisters())
+    

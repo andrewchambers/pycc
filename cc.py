@@ -1,17 +1,55 @@
 import sys
+import argparse
+
 from c.frontend import CFrontend
 
-from backend import standardmachine
+from backend.x86 import x86
+from backend.irbackend import irbackend
 
-from vis import irvis 
+backends = {
+    "x86" : x86.X86 ,
+    "ir" : irbackend.IRBackend ,
+}
 
 
+argparser = argparse.ArgumentParser()
+
+argparser.add_argument('source')
+
+argparser.add_argument('--backend',default="x86")
+argparser.add_argument('--frontend',default="C")
+argparser.add_argument('--output',default="out.s")
+
+argparser.add_argument('--iropt', action='store_true')
+argparser.add_argument('--show-preopt-function', action='store_true')
+argparser.add_argument('--show-postopt-function', action='store_true')
+argparser.add_argument('--show-selection-dag', action='store_true')
+argparser.add_argument('--show-md-selection-dag', action='store_true')
+argparser.add_argument('--show-md-function', action='store_true')
+argparser.add_argument('--show-all', action='store_true')
+
+args = argparser.parse_args()
 
 def main():
-    m = CFrontend.translateModule(sys.argv[1])
-    irvis.IR2Text(m)
-    machine = standardmachine.StandardMachine()
-    machine.translate(m,None)
+    
+    
+    if args.backend not in backends:
+        print "invalid backend - %s"%args.backend
+        sys.exit(1)
+    
+    backendClass = backends[args.backend]
+    
+    m = CFrontend.translateModule(args.source)
+    
+    machine = backendClass()
+    if args.output == '-':
+        ofile = sys.stdout
+    else:
+        ofile = open(args.output,'w')
+    machine.translate(args,m,ofile)
+    ofile.close()
+    
     
 if __name__ == '__main__':
+    
     main()

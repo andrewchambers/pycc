@@ -12,13 +12,12 @@ class CFrontend(object):
         print("parsing file")
         ast = parse_file(fname,use_cpp=False)
         ast.show()
-        print("generating symtab:")
+        print("generating symtab")
         stb = symtab.SymTab()
         stb.visit(ast)
-        
+        print("generating IR")
         irg = irgen.IRGenerator(stb)
         irg.visit(ast)
         mod = irg.getModule()
-        
         return mod
 

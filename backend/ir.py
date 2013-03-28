@@ -2,35 +2,31 @@
 counter = 0
 
 class Variable(object):
+    
     def __init__(self):
         global counter
         counter += 1
         self.name = "v%d"%counter
         self.lval = False
         self.pcount = 0
-    def incPCount(self):
-        self.pcount += 1
-        
-    def setPCount(self,count):
-        self.pcount = count
     
-    def getPCount(self):
-        return self.pcount
+    def isPhysical(self):
+        return False
     
-    def isLVal(self):
-        return self.lval
-    
-    def setLVal(self,lval=True):
-        self.lval = lval
     def __repr__(self):
         tstr = "%s" % self.__class__.__name__
         if self.lval:
             tstr += " lval"
         stars = "*"* self.pcount
-        return "(%s%s) %s" %(stars,tstr,self.name)
+        return "(%s%s) %s" %(tstr,stars,self.name)
+    
+    def getSize(self):
+        raise Exception("no size avaliable")
     
 class I32(Variable):
-    pass
+    
+    def getSize(self):
+        return 4
 
 class Constant(object):
     def __repr__(self):
@@ -43,111 +39,125 @@ class ConstantI32(Constant):
 class Instruction(object):
     
     def __init__(self):
-        self._outnodes = []
-        self._innodes = []
-        self._assigned = []
-        self._read = []
+        self.assigned = []
+        self.read = []
+        self.successors = []
     
-    def getAssignedVars(self):
-        return self._assigned
-    
-    def getReadVars(self):
-        return self._read
-    
-    def setAssignedVars(self,vs):
-        self._assigned = vs
-    
-    def setReadVars(self,vs):
-        self._read = vs
+    def getDagDisplayText(self):
+        return self.__class__.__name__
         
     def isTerminator(self):
         return False
     
-    def getSuccessors(self):
-        return []
+    def isBranch(self):
+        return len(self.getSuccessors()) > 0
     
-    def getOutNodes(self):
-        return self._outnodes
+    def swapVar(self,old,new):
+        for arr in [self.read,self.assigned]:
+            for k,v in enumerate(arr):
+                if v is old:
+                    arr[k] = new
         
-    def getInNodes(self):
-        return self._innodes
+    
+    def getSuccessors(self):
+        return self.successors
         
-    def addOutNode(self,n):
-        self._outnodes.append(n)
+    def swapSuccessor(self,old,new):
+        for k,v in enumerate(self.successors):
+            if v is old:
+                self.successors[k] = new
+    
+    def readsMem(self):
+        return False
+    
+    def writesMem(self):
+        return False
         
-    def addInNode(self,n):
-        self._innodes.append(n)
-
-class Dummy(Instruction):
-    def __init__(self,v):
-        Instruction.__init__(self)
-        self.setAssignedVars([v])
+    def isMD(self):
+        return False
+    
+    def isMove(self):
+        return False
 
 class Binop(Instruction):
     def __init__(self,op,res,l,r):
         Instruction.__init__(self)
         self.op = op
-        self.res = res
-        self.l = l
-        self.r = r
-        self.setAssignedVars([res])
-        self.setReadVars([l,r])
+        self.assigned = [res]
+        self.read = [l,r]
+    
+    def getDagDisplayText(self):
+        return self.op.replace(">","GT").replace("<","LT")
+    
     def __repr__(self):
-        return "%s = %s %s %s"%(self.res,self.l,self.op,self.r)
+        
+        return "%s = %s %s %s"%(self.assigned[0],self.read[0],self.op,
+                                    self.read[1])
 
-class LoadGlobal(Instruction):
-    def __init__(self,result,sym):
+class Call(Instruction):
+    def __repr__(self):
+        return "call"
+
+class LoadGlobalAddr(Instruction):
+    def __init__(self,res,sym):
         Instruction.__init__(self)
-        self.res = result
         self.sym = sym
-        self.setAssignedVars([res])
+        self.assigned = [res]
     def __repr__(self):
-        return "%s = LoadGlobal %s" % (self.res,self.sym.name)
+        return "%s = LoadGlobalAddr %s" % (self.assigned[0],self.sym.name)
 
 
-class LoadParam(Instruction):
-    def __init__(self,result,sym):
+class LoadParamAddr(Instruction):
+    def __init__(self,res,sym):
         Instruction.__init__(self)
-        self.res = result
         self.sym = sym
-        self.setAssignedVars([res])
+        self.assigned = [res]
     def __repr__(self):
-        return "%s = LoadParam %s" % (self.res,self.sym.name)
+        return "%s = LoadParamAddr %s" % (self.assigned[0],self.sym.name)
 
-class LoadLocal(Instruction):
-    def __init__(self,result,sym):
+class LoadLocalAddr(Instruction):
+    def __init__(self,res,sym):
         Instruction.__init__(self)
-        self.res = result
+        self.assigned = [res]
         self.sym = sym
     def __repr__(self):
-        return "%s = LoadLocal %s" % (self.res,self.sym.name)
+        if self.sym.slot.offset == None:
+            offset = self.sym.name
+        else:
+            offset = self.sym.slot.offset
+            
+        return "%s = LoadLocalAddr %s" % (self.assigned[0],offset)
         
         
 class LoadConstant(Instruction):
-    def __init__(self,var,const):
+    def __init__(self,res,const):
         Instruction.__init__(self)
-        self.var = var
+        self.assigned = [res]
         self.const = const
     def __repr__(self):
-        return "%s = LoadConstant %s" % (self.var,self.const)
+        return "%s = LoadConstant %s" % (self.assigned[0],self.const)
         
 class Deref(Instruction):
     def __init__(self,out,p):
         Instruction.__init__(self)
-        self.p = p
-        self.out = out
+        self.assigned = [out]
+        self.read = [p]
     def __repr__(self):
-        return "%s = *%s"%(self.out,self.p)
+        return "%s = *%s"%(self.assigned[0],self.read[0])
+    
+    def readsMem(self):
+        return True
     
 class Store(Instruction):
     def __init__(self,p,val):
         Instruction.__init__(self)
-        self.p = p
-        self.val = val
+        self.read = [p,val]
     
     def __repr__(self):
-        return "*%s = %s"%(self.p,self.val)
+        return "*%s = %s"%(self.read[0],self.read[1])
     
+    def writesMem(self):
+        return True
         
 class Terminator(Instruction):
     def isTerminator(self):
@@ -156,44 +166,44 @@ class Terminator(Instruction):
 class Ret(Terminator):
     def __init__(self,v):
         Terminator.__init__(self)
-        self.v = v
+        self.read = [v]
     
     def __repr__(self):
-        return "ret %s" % self.v
+        return "ret %s" % self.read[0]
     
         
 class Branch(Terminator):
     def __init__(self,v,t,f):
         Terminator.__init__(self)
-        self.v = v
-        self.t = t
-        self.f = f
+        self.read = [v]
+        self.successors = [t,f]
         
     def __repr__(self):
-        return "if %s goto %s else %s" %(self.v,self.t,self.f)
-
-    def getSuccessors(self):
-        return [self.t,self.f]
+        return "if %s goto %s else %s" %(self.read[0],self.successors[0],self.successors[1])
     
         
 class Jmp(Terminator):
     def __init__(self,dest):
         Terminator.__init__(self)
-        self.dest = dest
-    
-    def __repr__(self):
-        return "jmp %s" % self.dest
-    
-    def getSuccessors(self):
-        return [self.dest]
+        self.successors = [dest]
         
+    def __repr__(self):
+        return "jmp %s" % self.successors[0]
+        
+class Identity(Instruction):
+    def __init__(self,v):
+        Instruction.__init__(self)
+        self.read = []
+        self.assigned = [v]
 
 class Move(Instruction):
     def __init__(self,l,r):
         Instruction.__init__(self)
-        self.l = l
-        self.r = r
-        
+        self.read = [r]
+        self.assigned = [l]
+    
+    def isMove(self):
+        return True
+    
     def __repr__(self):
-        return "%s = Move %s" % (self.l,self.r)
-        
+        return "%s = Move %s" % (self.assigned[0],self.read[0])

@@ -1,5 +1,5 @@
 from pycparser import c_ast
-
+from backend import function
 
 #This class walks the AST keeping a stack of dictionaries corresponding to 
 #C scopes, then whenever it encounters a use of an ID or decl with an init it attempts to lookup
@@ -22,7 +22,9 @@ class Param(Symbol):
     pass
 
 class Local(Symbol):
-    pass
+    def __init__(self,name,t):
+        Symbol.__init__(self,name,t)
+        self.slot = function.StackSlot(4)
 
 
 GLOBAL = 0
