@@ -13,6 +13,7 @@ class Function(object):
         self.name = name
         self.entry = None
         self.stackslots = []
+        self.stackSize = 0
     
     def addStackSlot(self,ss):
         #XXX probably pretty inefficient
@@ -24,6 +25,7 @@ class Function(object):
         for slot in self.stackslots:
             slot.offset = offset
             offset += slot.size
+        self.stackSize = offset
     
     def setEntryBlock(self,entry):
         self.entry = entry

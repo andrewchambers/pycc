@@ -15,6 +15,9 @@ class BasicBlock(object):
     def __setitem__(self,k,v):
         self.opcodes[k] = v
     
+    def insert(self,idx,op):
+        self.opcodes.insert(idx,op)
+    
     def prepend(self,op):
         self.opcodes.insert(0,op)
     

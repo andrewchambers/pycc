@@ -26,6 +26,7 @@ argparser.add_argument('--show-postopt-function', action='store_true')
 argparser.add_argument('--show-selection-dag', action='store_true')
 argparser.add_argument('--show-md-selection-dag', action='store_true')
 argparser.add_argument('--show-md-function', action='store_true')
+argparser.add_argument('--show-interference', action='store_true')
 argparser.add_argument('--show-all', action='store_true')
 
 args = argparser.parse_args()

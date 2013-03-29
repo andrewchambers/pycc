@@ -65,7 +65,7 @@ class X86LoadConstantI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mov %s,%d"%(self.assigned[0],self.const.value)
+        return "mov %d,%%%s"%(self.const.value,self.assigned[0])
 
 class X86MovI32(machineinstruction.MI):
 
@@ -94,7 +94,7 @@ class X86MovI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mov %s,%s"%(self.assigned[0],self.read[0])
+        return "mov %%%s,%%%s"%(self.read[0],self.assigned[0])
 
 
 class X86AddI32(machineinstruction.MI):
@@ -131,7 +131,7 @@ class X86AddI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "add %s,%s"%(self.assigned[0],self.read[1])
+        return "add %%%s,%%%s"%(self.read[1],self.assigned[0])
 
 class X86LoadLocalAddr(machineinstruction.MI):
     
@@ -154,7 +154,7 @@ class X86LoadLocalAddr(machineinstruction.MI):
 
     def asm(self):
         r = self.assigned[0]
-        return "mov %s, ebp + %s\n "%(r,self.sym.slot.offset)
+        return "mov %s, ebp + %s "%(r,self.sym.slot.offset)
 
 class X86LoadLocalI32(machineinstruction.MI):
     
@@ -192,7 +192,7 @@ class X86LoadLocalI32(machineinstruction.MI):
 
     def asm(self):
         r = self.assigned[0]
-        return "mov %s, [ebp + %s]\n "%(r,self.sym.slot.offset)
+        return "mov %s, [ebp + %s]"%(r,self.sym.slot.offset)
 
 
 class X86StoreLocalI32(machineinstruction.MI):
@@ -223,7 +223,7 @@ class X86StoreLocalI32(machineinstruction.MI):
 
     def asm(self):
         r = self.read[0]
-        return "mov [ebp + %s], %s\n"%(self.sym.slot.offset,r)
+        return "mov [ebp + %s], %s"%(self.sym.slot.offset,r)
 
 
 class X86LoadI32(machineinstruction.MI):
@@ -291,6 +291,45 @@ class X86StackSaveI32(machineinstruction.MI):
     
     def asm(self):
         return "mov [ebp + XXX], %s "%(self.read[0])
+        
+class X86Jmp(machineinstruction.MI):
+    
+    def asm(self):
+        return "jmp %s"%(self.getSuccessors()[0].name)
+
+
+class X86Branch(machineinstruction.MI):
+    
+    def asm(self):
+        
+        if self.successors[0] != None and self.successors[1] == None:
+            return "test %s; jnz %s"%(self.read[0],self.successors[0])
+        elif self.successors[0] == None and self.successors[1] != None:
+            return "test %s; jz %s"%(self.read[0],successors[1])
+        else:
+            return "test %s; jnz %s; jmp %s"%(self.read[0],self.successors[0],successors[1])
+
+class X86Nop(machineinstruction.MI):
+    def asm(self):
+        return "nop"
+
+class X86Ret(machineinstruction.MI):
+    def asm(self):
+        return "ret"
+
+class X86Enter(machineinstruction.MI):
+    def __init__(self,stackSize):
+        machineinstruction.MI.__init__(self)
+        self.stackSize = stackSize
+    def asm(self):
+        return "add %s,%%esp ; mov %%esp, %%ebp" % self.stackSize
+
+class X86Leave(machineinstruction.MI):
+    def __init__(self, stackSize):
+        machineinstruction.MI.__init__(self)
+        self.stackSize = stackSize
+    def asm(self):
+        return "sub %s,%%esp ; mov %%ebp, %%esp" % self.stackSize
 
 
 instructions = [
@@ -321,6 +360,14 @@ def getRegisterByName(n):
     raise Exception("bad register %s"%n)
 
 class X86(standardmachine.StandardMachine):
+    
+    
+    def getEpilog(self,stackSize):
+        return [X86Leave(stackSize)]
+    
+    def getProlog(self,stackSize):
+        return [X86Enter(stackSize)]
+    
     
     def getInstructions(self):
         return instructions
@@ -449,3 +496,39 @@ class X86(standardmachine.StandardMachine):
     def callingConventions(self, dag):
         self.fixReturns(dag)
         self.fixCalls(dag)
+    
+    
+    def terminatorSelection(self,instr):
+        
+        if type(instr) == ir.Jmp:
+            
+            next = instr.getSuccessors()[0]
+            if next == None:
+                return X86Nop()
+            newJump = X86Jmp()
+            newJump.setSuccessors(instr.getSuccessors())
+            return newJump
+            
+            
+        elif type(instr) == ir.Branch:
+            
+            trueBlock,falseBlock = instr.getSuccessors()
+            if trueBlock == None and falseBlock == None:
+                return X86Nop()
+            
+            newBranch = X86Branch()
+            newBranch.setSuccessors(instr.getSuccessors())
+            newBranch.read = instr.read
+            return newBranch
+        
+        elif type(instr) == ir.Ret:
+            return X86Ret()
+        else:
+            raise Exception("unreachable branch selection - %s" % instr)
+            
+            
+            
+            
+            
+
+

@@ -62,6 +62,9 @@ class Instruction(object):
     def getSuccessors(self):
         return self.successors
         
+    def setSuccessors(self,new):
+        self.successors = new
+        
     def swapSuccessor(self,old,new):
         for k,v in enumerate(self.successors):
             if v is old:
