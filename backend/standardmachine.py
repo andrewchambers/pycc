@@ -84,8 +84,9 @@ class StandardMachine(target.Target):
             
             linear[idx][-1] = self.terminatorSelection(terminator)
         
+        ofile.write(".text\n")
         ofile.write(".globl %s\n" % f.name)
-        ofile.write("_%s:\n" % f.name)
+        ofile.write("%s:\n" % f.name)
         
         for block in linear:
             ofile.write("." + block.name + ':\n')

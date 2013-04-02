@@ -192,7 +192,7 @@ class X86LoadLocalI32(machineinstruction.MI):
 
     def asm(self):
         r = self.assigned[0]
-        return "mov %s, [ebp + %s]"%(r,self.sym.slot.offset)
+        return "mov %s(%%ebp), %%%s "%(-1*self.sym.slot.offset,r)
 
 
 class X86StoreLocalI32(machineinstruction.MI):
@@ -223,7 +223,7 @@ class X86StoreLocalI32(machineinstruction.MI):
 
     def asm(self):
         r = self.read[0]
-        return "mov [ebp + %s], %s"%(self.sym.slot.offset,r)
+        return "mov %%%s, %s(%%ebp) "%(r,-1 * self.sym.slot.offset)
 
 
 class X86LoadI32(machineinstruction.MI):
@@ -322,14 +322,14 @@ class X86Enter(machineinstruction.MI):
         machineinstruction.MI.__init__(self)
         self.stackSize = stackSize
     def asm(self):
-        return "add %s,%%esp ; mov %%esp, %%ebp" % self.stackSize
+        return "pushl %%ebp; movl %%esp,%%ebp;  subl %s,%%esp;" % self.stackSize
 
 class X86Leave(machineinstruction.MI):
     def __init__(self, stackSize):
         machineinstruction.MI.__init__(self)
         self.stackSize = stackSize
     def asm(self):
-        return "sub %s,%%esp ; mov %%ebp, %%esp" % self.stackSize
+        return "movl %ebp, %esp;popl %ebp;"
 
 
 instructions = [
