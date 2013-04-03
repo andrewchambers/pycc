@@ -36,7 +36,7 @@ class MultI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mul %s %s %s"%(self.assigned[0],self.read[0],self.read[1])
+        return "mult %s %s %s"%(self.assigned[0],self.read[0],self.read[1])
 
 class X86LoadConstantI32(machineinstruction.MI):
     
@@ -65,7 +65,7 @@ class X86LoadConstantI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mov %d,%%%s"%(self.const.value,self.assigned[0])
+        return "mov $%d,%%%s"%(self.const.value,self.assigned[0])
 
 class X86MovI32(machineinstruction.MI):
 
@@ -154,7 +154,12 @@ class X86LoadLocalAddr(machineinstruction.MI):
 
     def asm(self):
         r = self.assigned[0]
-        return "mov %s, ebp + %s "%(r,self.sym.slot.offset)
+        offset = self.sym.slot.offset
+        if offset == None:
+            offsetStr = "XXX"
+        else:
+            offsetStr = str( -1 * ( 4 + offset) ) 
+        return "mov %%ebp, %%%s; add $%s , %%%s"%(r,offsetStr,r)
 
 class X86LoadLocalI32(machineinstruction.MI):
     
@@ -191,8 +196,17 @@ class X86LoadLocalI32(machineinstruction.MI):
         return InstructionMatch(repl,2)
 
     def asm(self):
+        
         r = self.assigned[0]
-        return "mov %s(%%ebp), %%%s "%(-1*self.sym.slot.offset,r)
+        
+        offset = self.sym.slot.offset
+        if offset == None:
+            offsetStr = "XXX"
+        else:
+            offsetStr = str(-1 * (4 + offset))
+        
+        
+        return "mov %s(%%ebp), %%%s "%(offsetStr,r)
 
 
 class X86StoreLocalI32(machineinstruction.MI):
@@ -223,7 +237,13 @@ class X86StoreLocalI32(machineinstruction.MI):
 
     def asm(self):
         r = self.read[0]
-        return "mov %%%s, %s(%%ebp) "%(r,-1 * self.sym.slot.offset)
+        offset = self.sym.slot.offset
+        if offset == None:
+            offsetStr = "XXX"
+        else:
+            offsetStr = str(-1 * (4 + offset))
+        
+        return "mov %%%s, %s(%%ebp) "%(r,offsetStr)
 
 
 class X86LoadI32(machineinstruction.MI):
@@ -249,7 +269,7 @@ class X86LoadI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mov %s, [%s]"%(self.assigned[0],self.read[0])
+        return "movl (%%%s),%%%s"%(self.assigned[0],self.read[0])
 
 class X86StoreI32(machineinstruction.MI):
     
@@ -274,7 +294,7 @@ class X86StoreI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mov [%s], %s"%(self.read[0],self.read[1])
+        return "movl %s, 0(%s)"%(self.read[1],self.read[0])
 
 class X86PushI32(machineinstruction.MI):
     
@@ -322,14 +342,22 @@ class X86Enter(machineinstruction.MI):
         machineinstruction.MI.__init__(self)
         self.stackSize = stackSize
     def asm(self):
-        return "pushl %%ebp; movl %%esp,%%ebp;  subl %s,%%esp;" % self.stackSize
+        ret = "pushl %ebp; movl %esp,%ebp;"
+        if self.stackSize:
+              ret += "subl $%s,%%esp;" % self.stackSize
+        return ret
 
 class X86Leave(machineinstruction.MI):
     def __init__(self, stackSize):
         machineinstruction.MI.__init__(self)
         self.stackSize = stackSize
     def asm(self):
-        return "movl %ebp, %esp;popl %ebp;"
+        if self.stackSize:
+            ret = "addl $%s,%%esp;"% self.stackSize
+        else:
+            ret = ""
+        ret += "popl %ebp;" 
+        return ret
 
 
 instructions = [
@@ -338,10 +366,10 @@ instructions = [
     X86MovI32,
     X86LoadI32,
     X86LoadConstantI32,
-    X86LoadLocalI32,
+    #X86LoadLocalI32,
     X86LoadLocalAddr,
-    X86StoreLocalI32,
-#    X86StoreI32,
+    #X86StoreLocalI32,
+    X86StoreI32,
 #    X86PushI32,
 ]
 
@@ -392,7 +420,7 @@ class X86(standardmachine.StandardMachine):
         print("x86 fixups")
         newnodes = []
         for n in dag.nodes:
-            if type(n.instr) == ir.Binop and n.instr.op == '+':
+            if type(n.instr) == ir.Binop and (n.instr.op in ['+','*'] ):
                 print("fixing up binop in DAG")
                 #add a,b,c
                 # -------
@@ -416,7 +444,23 @@ class X86(standardmachine.StandardMachine):
                     
         for n in newnodes:
             dag.nodes.append(n)
-    
+        
+        newnodes = []
+        
+        for n in dag.nodes:
+            if type(n.instr) == ir.Binop and n.instr.op == '*':
+                eax = getRegisterByName('eax')
+                copy = SDNode()
+                instr = X86MovI32()
+                instr.read = [None]
+                instr.assigned = [None]
+                copy.instr = instr
+                n.ins[0].edge.head = copy.ins[0]
+                edge = SDDataEdge(n.ins[0],copy.outs[0])
+                edge.var = eax
+                
+        for n in newnodes:
+            dag.nodes.append(n)
     
     def fixReturns(self,dag):
         
