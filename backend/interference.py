@@ -56,12 +56,13 @@ class InterferenceGraph(object):
                 for v in instr.read:
                     live.add(v)
                 
-                liveness.append(live.copy())
-                
-                
                 for v in instr.assigned:
                     if v in live:
                         live.remove(v)
+                
+                liveness.append(live.copy())
+                
+                
                 
         self.nodes = function.variables
         #XXX rename to interference edges
@@ -77,7 +78,7 @@ class InterferenceGraph(object):
         for b in function:
             for i in b:
                 if i.isMove():
-                    self.moveedges.append(set([i.assigned[0],i.read[0]]))
+                    moveedges.append(set([i.assigned[0],i.read[0]]))
         
         self.moveedges = moveedges
     

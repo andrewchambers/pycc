@@ -33,6 +33,9 @@ class BasicBlock(object):
     def __repr__(self):
         return self.name
     
+    def removeInstructions(self,instructions):
+        self.opcodes = [op for op in self.opcodes if op not in instructions]
+    
     def unsafeEnding(self):
         if len(self) == 0 or (not self[-1].isTerminator() and not self[-1].isBranch()):
             return True

@@ -13,13 +13,6 @@ class RegisterAllocator(object):
         nodes = list(ig.nodes)
         degrees = {}
         
-        usedRegisters = set()
-        
-        for b in f:
-            for i in b:
-                for v in itertools.chain(i.read,i.assigned):
-                    if v.isPhysical():
-                        usedRegisters.add(v)
         
         for v in nodes:
             degree = 0
@@ -31,6 +24,8 @@ class RegisterAllocator(object):
         nodes.sort(key=lambda n : degrees[n])
         
         for n in nodes:
+            if n.isPhysical():
+                continue
             interferes = ig.getInterferes(n)
             interferes = set([allocations.get(x,x) for x in interferes ])
             possibleregs = self.target.getPossibleRegisters(n)
@@ -38,23 +33,29 @@ class RegisterAllocator(object):
             
             if len(possibleregs):
                 
-                possibleAndUsed = list(filter(lambda x : x in usedRegisters, possibleregs))
-                if len(possibleAndUsed):
-                    chosenreg = possibleAndUsed.pop()
-                else:
-                    chosenreg = possibleregs.pop()
+                movecount = -1
+                chosenreg = None
                 
-                usedRegisters.add(chosenreg)
+                for reg in possibleregs:
+                    print("testing reg %s for position %s"%(reg,n))
+                    newmovecount = 0
+                    for mvedge in ig.moveedges:
+                        if n in mvedge:
+                            for v in mvedge:
+                                if v != n:
+                                    if v.isPhysical() and v == reg:
+                                        newmovecount += 1
+                                    elif allocations.get(v,None) == reg:
+                                        newmovecount += 1
+                                    break
+                            
+                    
+                    if newmovecount > movecount:
+                        print("reg %s is better than %s" % (reg,chosenreg))
+                        movecount = newmovecount
+                        chosenreg = reg
+                
                 allocations[n] = chosenreg
-                
-                #XXX todo use move edges
-                #regcounts = {}
-                
-                #for reg in possibleregs:
-                #    regcounts[reg] = 0
-                #    for mvedge in ig.moveedges:
-                #        if n in mvedge and :
-                #allocations[n] = max(possibleregs,key=lambda r : )
         
         
         for b in f:

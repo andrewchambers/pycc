@@ -14,8 +14,13 @@ def showInterferenceGraph(ig):
         g.write("graph g {\n")
         for v in ig.nodes:
             g.write("%s [label=\"%s\"];\n"%(nodenames[v],str(v)))
+        
         for v,other in ig.interference:
             g.write("%s -- %s;\n"%(nodenames[v],nodenames[other]))
+        
+        for v,other in ig.moveedges:
+            g.write("%s -- %s [style=\"dotted\"];\n"%(nodenames[v],nodenames[other]))
+        
         g.write("}\n")
         g.finalize()
         g.show()

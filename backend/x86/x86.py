@@ -7,7 +7,7 @@ from backend.instructionselector import *
 from backend.selectiondag import *
 
 
-class MultI32(machineinstruction.MI):
+class X86IMultI32(machineinstruction.MI):
     
     @staticmethod
     def match(dag,node):
@@ -27,8 +27,11 @@ class MultI32(machineinstruction.MI):
         if type(node.instr.assigned[0]) != ir.I32:
             return None
         
+        if node.instr.assigned[0] != node.instr.read[0]:
+            return None
+        
         def repl():
-            m = MultI32()
+            m = X86IMultI32()
             m.assigned = node.instr.assigned
             m.read = node.instr.read
             node.instr = m
@@ -36,7 +39,7 @@ class MultI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "mult %s %s %s"%(self.assigned[0],self.read[0],self.read[1])
+        return "imul %%%s"%(self.read[1])
 
 class X86LoadConstantI32(machineinstruction.MI):
     
@@ -68,7 +71,10 @@ class X86LoadConstantI32(machineinstruction.MI):
         return "mov $%d,%%%s"%(self.const.value,self.assigned[0])
 
 class X86MovI32(machineinstruction.MI):
-
+    
+    def isMove(self):
+        return True
+    
     @staticmethod
     def match(dag,node):
         
@@ -98,7 +104,6 @@ class X86MovI32(machineinstruction.MI):
 
 
 class X86AddI32(machineinstruction.MI):
-    
     
     @staticmethod
     def match(dag,node):
@@ -135,7 +140,6 @@ class X86AddI32(machineinstruction.MI):
 
 class X86LoadLocalAddr(machineinstruction.MI):
     
-    
     @staticmethod
     def match(dag,node):
         
@@ -158,8 +162,38 @@ class X86LoadLocalAddr(machineinstruction.MI):
         if offset == None:
             offsetStr = "XXX"
         else:
-            offsetStr = str( -1 * ( 4 + offset) ) 
-        return "mov %%ebp, %%%s; add $%s , %%%s"%(r,offsetStr,r)
+            offsetStr = str( ( 4 + offset) ) 
+        return "mov %%ebp, %%%s; sub $%s, %%%s"%(r,offsetStr,r)
+
+
+class X86LoadParamAddr(machineinstruction.MI):
+    
+    
+    @staticmethod
+    def match(dag,node):
+        
+        if type(node.instr) != ir.LoadParamAddr:
+            return None
+        
+        
+        def repl():
+            lla = X86LoadParamAddr()
+            lla.assigned = node.instr.assigned
+            lla.sym = node.instr.sym
+            node.instr = lla
+            
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        r = self.assigned[0]
+        offset = self.sym.slot.offset
+        if offset == None:
+            offsetStr = "XXX"
+        else:
+            offsetStr = str( ( 8 + offset) ) 
+        return "mov %%ebp, %%%s; add $%s, %%%s"%(r,offsetStr,r)
+
 
 class X86LoadLocalI32(machineinstruction.MI):
     
@@ -269,7 +303,7 @@ class X86LoadI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "movl (%%%s),%%%s"%(self.assigned[0],self.read[0])
+        return "movl (%%%s),%%%s"%(self.read[0],self.assigned[0])
 
 class X86StoreI32(machineinstruction.MI):
     
@@ -294,7 +328,7 @@ class X86StoreI32(machineinstruction.MI):
         return InstructionMatch(repl,1)
 
     def asm(self):
-        return "movl %s, 0(%s)"%(self.read[1],self.read[0])
+        return "movl %%%s, (%%%s)"%(self.read[1],self.read[0])
 
 class X86PushI32(machineinstruction.MI):
     
@@ -362,11 +396,11 @@ class X86Leave(machineinstruction.MI):
 
 instructions = [
     X86AddI32,
-#    MultI32,
+    X86IMultI32,
     X86MovI32,
     X86LoadI32,
     X86LoadConstantI32,
-    #X86LoadLocalI32,
+    X86LoadParamAddr,
     X86LoadLocalAddr,
     #X86StoreLocalI32,
     X86StoreI32,
@@ -389,35 +423,8 @@ def getRegisterByName(n):
 
 class X86(standardmachine.StandardMachine):
     
-    
-    def getEpilog(self,stackSize):
-        return [X86Leave(stackSize)]
-    
-    def getProlog(self,stackSize):
-        return [X86Enter(stackSize)]
-    
-    
-    def getInstructions(self):
-        return instructions
-        
-    def getRegisters(self):
-        return registers
-    
-    def getSpillCode(self,reg,ss1,ss2):
-        
-        start = [X86StackSaveI32(),X86StackLoadI32()]
-        end = [X86StackSaveI32(),X86StackLoadI32()]
-        
-        start[0].read = [reg]
-        start[1].assigned = [reg]
-        end[0].read = [reg]
-        end[1].assigned = [reg]
-        
-        return start,end
-    
-    def applyDagFixups(self,dag):
-        
-        print("x86 fixups")
+    def dagFixups(self,dag):
+        print("x86 dag fixups")
         newnodes = []
         for n in dag.nodes:
             if type(n.instr) == ir.Binop and (n.instr.op in ['+','*'] ):
@@ -444,103 +451,82 @@ class X86(standardmachine.StandardMachine):
                     
         for n in newnodes:
             dag.nodes.append(n)
-        
-        newnodes = []
-        
-        for n in dag.nodes:
-            if type(n.instr) == ir.Binop and n.instr.op == '*':
-                eax = getRegisterByName('eax')
-                copy = SDNode()
-                instr = X86MovI32()
-                instr.read = [None]
-                instr.assigned = [None]
-                copy.instr = instr
-                n.ins[0].edge.head = copy.ins[0]
-                edge = SDDataEdge(n.ins[0],copy.outs[0])
-                edge.var = eax
-                
-        for n in newnodes:
-            dag.nodes.append(n)
     
-    def fixReturns(self,dag):
-        
-        newnodes = []
-        for n in dag.nodes:
-            if type(n.instr) == ir.Ret:
-                ret = n
-                eax = getRegisterByName('eax')
-                oldvar = ret.ins[0].var
-                oldtail = ret.ins[0].edge.tail
-                ret.ins[0].edge.remove()
-                
-                copy = SDNode()
-                instr = X86MovI32()
-                instr.read = [oldvar]
-                instr.assigned = [eax]
-                copy.instr = instr
-                
-                e1 = SDDataEdge(copy.ins[0],oldtail)
-                e2 = SDDataEdge(ret.ins[0],copy.outs[0])
-                
-                e1.var = oldvar
-                e2.var = eax
-                
-                newnodes.append(copy)
-        
-        for n in newnodes:
-            dag.nodes.append(n)
-
-    def fixCalls(self,dag):
-        
-        newnodes = []
-        for n in dag.nodes:
-            if type(n.instr) == ir.Call:
-                call = n
-                eax = getRegisterByName('eax')
-                
-                prevPush = None
-                for inport in call.ins:
-                    outport = inport.edge.tail
-                    node = SDNode()
-                    newnodes.append(node)
-                    p = X86PushI32()
-                    v = inport.var
-                    inport.edge.remove()
-                    p.read = [None]
-                    node.instr = p
-                    e = SDDataEdge(node.ins[0],outport)
-                    e.var = v
-                    node.control.append(call)
-                    if prevPush != None:
-                        prevPush.control.append(node)
-                    prevPush = node
-                
-                if len(call.outs) :
-                    deps = [ x for x in call.outs[0].edges ]
-                    heads = [ x.head for x in call.outs[0].edges ]
-                    oldvars = [ h.var for h in heads]
-                    for e in deps:
-                        e.remove()
-                    copy = SDNode()
-                    instr = X86MovI32()
-                    instr.read = [None]
-                    instr.assigned = [None]
-                    copy.instr = instr
-                    e1 = SDDataEdge(copy.ins[0],call.outs[0])
-                    e1.var = eax
-                    for k,h in enumerate(heads):
-                        e2 = SDDataEdge(h,copy.outs[0])
-                        e2.var = oldvars[k]
-                    newnodes.append(copy)
-        
-        for n in newnodes:
-            dag.nodes.append(n)
+    def blockFixups(self,block):
+        self.mulFixups(block)
+        self.retFixups(block)
+        #self.callFixups(block)
     
+    def mulFixups(self,block):
+        idx = 0
+        blocklen = len(block)
+        while idx < blocklen:
+            instr = block[idx]
+            if type(instr) == X86IMultI32:
+                if type(instr.read[0]) == ir.I32:
+                    eax = getRegisterByName('eax')
+                    edx = getRegisterByName('edx')
+                    mov1 = X86MovI32()
+                    mov2 = X86MovI32()
+                    mov1.read = [instr.read[0]]
+                    mov1.assigned = [eax]
+                    mov2.read = [eax]
+                    mov2.assigned = [instr.assigned[0]]
+                    instr.read[0] = eax
+                    instr.assigned = [eax,edx]
+                    block.insert(idx,mov1)
+                    block.insert(idx + 2,mov2)
+                    idx += 2
+                    blocklen += 2
+                else:
+                    print("unsupported type for mul fixups")
+            idx += 1
     
-    def callingConventions(self, dag):
-        self.fixReturns(dag)
-        self.fixCalls(dag)
+    def retFixups(self,block):
+        idx = 0
+        blocklen = len(block)
+        while idx < blocklen:
+            instr = block[idx]
+            if type(instr) == ir.Ret:
+                if type(instr.read[0]) == ir.I32:
+                    eax = getRegisterByName('eax')
+                    mov = X86MovI32()
+                    mov.read = [instr.read[0]]
+                    mov.assigned = [eax]
+                    instr.read[0] = eax
+                    block.insert(idx,mov)
+                    idx += 1
+                    blocklen += 1
+                else:
+                    print("unsupported type for ret")
+            idx += 1
+        
+    def callFixups(self,block):
+        pass
     
+    def getEpilog(self,stackSize):
+        return [X86Leave(stackSize)]
+    
+    def getProlog(self,stackSize):
+        return [X86Enter(stackSize)]
+    
+    def getInstructions(self):
+        return instructions
+        
+    def getRegisters(self):
+        return registers
+    
+    def getSpillCode(self,reg,ss1,ss2):
+        
+        start = [X86StackSaveI32(),X86StackLoadI32()]
+        end = [X86StackSaveI32(),X86StackLoadI32()]
+        
+        start[0].read = [reg]
+        start[1].assigned = [reg]
+        end[0].read = [reg]
+        end[1].assigned = [reg]
+        
+        return start,end
     
     def terminatorSelection(self,instr):
         
@@ -569,10 +555,6 @@ class X86(standardmachine.StandardMachine):
             return X86Ret()
         else:
             raise Exception("unreachable branch selection - %s" % instr)
-            
-            
-            
-            
             
 
 

@@ -41,6 +41,8 @@ class StandardMachine(target.Target):
     
     def translateFunction(self,f,ofile):
         
+        f.resolveArguments()
+        
         if self.args.show_all or self.args.show_preopt_function:
             irvis.showFunction(f)
 
@@ -51,6 +53,11 @@ class StandardMachine(target.Target):
             irvis.showFunction(f)
         
         self.doInstructionSelection(f)
+        
+        for block in f:
+            self.blockFixups(block)
+        
+        irvis.showFunction(f)
         
         ig = interference.InterferenceGraph(f)
         if self.args.show_all or self.args.show_interference:
@@ -67,9 +74,13 @@ class StandardMachine(target.Target):
         
         self.prologAndEpilog(f)
         
+        self.preEmitCleanup(f)
+        
+        
         #linearize the function
         
         linear = list(f)
+        
         
         #swap remove branch targets that will fall through
         for idx,b in enumerate(linear):
@@ -92,12 +103,22 @@ class StandardMachine(target.Target):
             ofile.write("." + block.name + ':\n')
             for instr in block:
                 ofile.write("\t" + instr.asm() + '\n')
-            
-        
+    
+    def dagFixups(self,dag):
+        raise Exception("unimplemented")
+    
+    def blockFixups(self,block):
+        raise Exception("unimplemented")
+    
+    
+    def preEmitCleanup(self,f):
+        for block in f:
+            idx = 0
+            naiveMoves = [instr for instr in block if instr.isMove() and instr.read[0] == instr.assigned[0] ]
+            block.removeInstructions(naiveMoves)
         
     def doIROpt(self,func):
         while True:
-            #irvis.showFunction(f)
             if jumpfix.JumpFix().runOnFunction(f):
                 continue
             if blockmerge.BlockMerge().runOnFunction(f):
@@ -106,7 +127,6 @@ class StandardMachine(target.Target):
                 continue
             if branchreplace.BranchReplace().runOnFunction(f):
                 continue
-            
             break
     
     def doInstructionSelection(self,func):
@@ -115,8 +135,9 @@ class StandardMachine(target.Target):
             isel = instructionselector.InstructionSelector()
             if self.args.show_all or self.args.show_selection_dag:
                 dagvis.showSelDAG(sd)
-            self.applyDagFixups(sd)
-            self.callingConventions(sd)
+            
+            self.dagFixups(sd)
+            
             isel.select(self,sd)
             if self.args.show_all or self.args.show_md_selection_dag:
                 dagvis.showSelDAG(sd)
@@ -130,15 +151,9 @@ class StandardMachine(target.Target):
         for f in m:
             self.outputFunction(f,ofile)
     
-    def applyDagFixups(self,dag):
-        pass
-    
-    def callingConventions(self,dag):
-        pass
-    
     def prologAndEpilog(self,func):
         
-        stackSize = func.stackSize
+        stackSize = func.localsSize
         entry = func.entry
         
         prolog = self.getProlog(stackSize)
@@ -159,7 +174,6 @@ class StandardMachine(target.Target):
     
     def getProlog(self,stackSize):
         raise Exception("unimplemented")
-    
     
     def getRegisters(self):
         return []

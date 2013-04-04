@@ -73,9 +73,6 @@ class IRGenerator(c_ast.NodeVisitor):
         return ret
         
     
-    def visit_FuncDecl(self,node):
-        pass
-    
     
     def visit_Assignment(self,node):
         
