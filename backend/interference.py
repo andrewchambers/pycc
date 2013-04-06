@@ -64,6 +64,7 @@ class InterferenceGraph(object):
                 
                 
                 
+                
         self.nodes = function.variables
         #XXX rename to interference edges
         self.interference = []
