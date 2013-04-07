@@ -16,6 +16,11 @@ class Function(object):
         self.localsSize = 0
         self.argumentslots = []
     
+    def createAndAddSpillSlot(self,size):
+        ss = StackSlot(size)
+        self.addStackSlot(ss)
+        return ss
+    
     def addArgumentSlot(self,ss):
         if ss not in self.argumentslots:
             self.argumentslots.append(ss)

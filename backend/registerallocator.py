@@ -56,7 +56,8 @@ class RegisterAllocator(object):
                         chosenreg = reg
                 
                 allocations[n] = chosenreg
-        
+            else:
+                print("failed to")
         
         for b in f:
             for i in b:
@@ -66,6 +67,8 @@ class RegisterAllocator(object):
         self.spill(f,ig)
     
     def spill(self,f,ig):
+        
+        raise Exception("broken")
         
         for  b in f:
             idx = 0
@@ -77,8 +80,9 @@ class RegisterAllocator(object):
                     reg = possible.pop()
                     instr.swapVar(spillvar,reg)
                     print "spilling %s - calc done in %s" %(spillvar,reg)
-                    ss1 = None
-                    ss2 = None
+                    #XXX get proper size... 4 ok for now
+                    ss1 = f.createAndAddSpillSlot(4)
+                    ss2 = f.createAndAddSpillSlot(4)
                     start,end = self.target.getSpillCode(reg,ss1,ss2)
                     b.opcodes = b.opcodes[:idx] + start + [instr] + end + b.opcodes[idx+1:]
                     idx = idx + len(start)

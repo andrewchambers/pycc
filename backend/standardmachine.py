@@ -57,7 +57,9 @@ class StandardMachine(target.Target):
         for block in f:
             self.blockFixups(block)
         
-        irvis.showFunction(f)
+        if self.args.show_all or self.args.show_md_function_preallocation:
+            irvis.showFunction(f)
+        
         
         ig = interference.InterferenceGraph(f)
         if self.args.show_all or self.args.show_interference:
