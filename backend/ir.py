@@ -57,7 +57,9 @@ class Instruction(object):
             for k,v in enumerate(arr):
                 if v is old:
                     arr[k] = new
-        
+    
+    def asm(self):
+        return "#%s" % str(self)
     
     def getSuccessors(self):
         return self.successors

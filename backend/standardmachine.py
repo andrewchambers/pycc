@@ -121,13 +121,13 @@ class StandardMachine(target.Target):
         
     def doIROpt(self,func):
         while True:
-            if jumpfix.JumpFix().runOnFunction(f):
+            if jumpfix.JumpFix().runOnFunction(func):
                 continue
-            if blockmerge.BlockMerge().runOnFunction(f):
+            if blockmerge.BlockMerge().runOnFunction(func):
                 continue
-            if unused.UnusedVars().runOnFunction(f):
+            if unused.UnusedVars().runOnFunction(func):
                 continue
-            if branchreplace.BranchReplace().runOnFunction(f):
+            if branchreplace.BranchReplace().runOnFunction(func):
                 continue
             break
     

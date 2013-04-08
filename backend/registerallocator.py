@@ -68,7 +68,7 @@ class RegisterAllocator(object):
     
     def spill(self,f,ig):
         
-        raise Exception("broken")
+        
         
         for  b in f:
             idx = 0
@@ -76,6 +76,7 @@ class RegisterAllocator(object):
                 instr = b[idx]
                 tospill = filter(lambda x : x.isPhysical() == False, itertools.chain(instr.read,instr.assigned))
                 for spillvar in tospill:
+                    raise Exception("broken")
                     possible = set(self.target.getPossibleRegisters(spillvar)) - set(instr.read)
                     reg = possible.pop()
                     instr.swapVar(spillvar,reg)

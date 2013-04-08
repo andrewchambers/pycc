@@ -55,15 +55,18 @@ class InterferenceGraph(object):
                 
                 
                 
-                liveness.append(live.copy())
-                
                 for v in instr.assigned:
                     if v in live:
                         live.remove(v)
                 
+                liveness.append(live.copy().union(set(instr.assigned)))
+                
                 for v in instr.read:
                     live.add(v)
                 
+                #print("XXXX %s" % instr)
+                #print("\t%s" % liveness[-1])
+
                 
         self.nodes = function.variables
         #XXX rename to interference edges

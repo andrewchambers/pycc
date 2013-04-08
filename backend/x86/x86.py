@@ -41,6 +41,88 @@ class X86IMultI32(machineinstruction.MI):
     def asm(self):
         return "imul %%%s"%(self.read[1])
 
+class X86IDivI32(machineinstruction.MI):
+    
+    @staticmethod
+    def match(dag,node):
+        
+        
+        if type(node.instr) != ir.Binop or node.instr.op != '/':
+            return None
+        
+        
+        if len(node.ins) != 2:
+            return None
+            
+        
+        if type(node.instr.read[0]) != ir.I32:
+            return None
+        
+        
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
+        
+        if type(node.instr.assigned[0]) != ir.I32:
+            return None
+        
+        
+        if node.instr.assigned[0] != node.instr.read[0]:
+            return None
+        
+        
+        def repl():
+            d = X86IDivI32()
+            d.assigned = node.instr.assigned
+            d.read = node.instr.read
+            node.instr = d
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        return "cdq; idiv %%%s"%(self.read[1])
+
+class X86IModI32(machineinstruction.MI):
+    
+    @staticmethod
+    def match(dag,node):
+        
+        
+        if type(node.instr) != ir.Binop or node.instr.op != '%':
+            return None
+        
+        
+        if len(node.ins) != 2:
+            return None
+            
+        
+        if type(node.instr.read[0]) != ir.I32:
+            return None
+        
+        
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
+        
+        if type(node.instr.assigned[0]) != ir.I32:
+            return None
+        
+        
+        if node.instr.assigned[0] != node.instr.read[0]:
+            return None
+        
+        
+        def repl():
+            d = X86IModI32()
+            d.assigned = node.instr.assigned
+            d.read = node.instr.read
+            node.instr = d
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        return "cdq; idiv %%%s"%(self.read[1])
+
 class X86LoadConstantI32(machineinstruction.MI):
     
     def __init__(self,const):
@@ -137,6 +219,115 @@ class X86AddI32(machineinstruction.MI):
 
     def asm(self):
         return "add %%%s,%%%s"%(self.read[1],self.assigned[0])
+
+
+class X86SubI32(machineinstruction.MI):
+    
+    @staticmethod
+    def match(dag,node):
+        
+        
+        if type(node.instr) != ir.Binop or node.instr.op != '-':
+            return None
+        
+        if len(node.ins) != 2:
+            return None
+        
+        if type(node.instr.assigned[0]) != ir.I32:
+            return None
+        
+        if type(node.instr.read[0]) != ir.I32:
+            return None
+            
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
+        if node.instr.assigned[0] != node.instr.read[0]:
+            return None
+        
+        def repl():
+            sub = X86SubI32()
+            sub.assigned = node.instr.assigned
+            sub.read = node.instr.read
+            node.instr = sub
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        return "sub %%%s,%%%s"%(self.read[1],self.assigned[0])
+
+class X86SHLI32(machineinstruction.MI):
+    
+    @staticmethod
+    def match(dag,node):
+        
+        
+        if type(node.instr) != ir.Binop or node.instr.op != '<<':
+            return None
+        
+        if len(node.ins) != 2:
+            return None
+        
+        if type(node.instr.assigned[0]) != ir.I32:
+            return None
+        
+        if type(node.instr.read[0]) != ir.I32:
+            return None
+            
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
+        if node.instr.assigned[0] != node.instr.read[0]:
+            return None
+        
+        def repl():
+            shl = X86SHLI32()
+            shl.assigned = node.instr.assigned
+            shl.read = node.instr.read
+            node.instr = shl
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        return "shl %%cl,%%%s"%(self.assigned[0])
+
+class X86SHRI32(machineinstruction.MI):
+    
+    @staticmethod
+    def match(dag,node):
+        
+        
+        if type(node.instr) != ir.Binop or node.instr.op != '>>':
+            return None
+        
+        if len(node.ins) != 2:
+            return None
+        
+        if type(node.instr.assigned[0]) != ir.I32:
+            return None
+        
+        if type(node.instr.read[0]) != ir.I32:
+            return None
+            
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
+        if node.instr.assigned[0] != node.instr.read[0]:
+            return None
+        
+        def repl():
+            shr = X86SHRI32()
+            shr.assigned = node.instr.assigned
+            shr.read = node.instr.read
+            node.instr = shr
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        return "shr %%cl,%%%s"%(self.assigned[0])
+
+
+
 
 class X86LoadLocalAddr(machineinstruction.MI):
     
@@ -396,7 +587,12 @@ class X86Leave(machineinstruction.MI):
 
 instructions = [
     X86AddI32,
+    X86SubI32,
+    X86SHLI32,
+    X86SHRI32,
     X86IMultI32,
+    X86IDivI32,
+    X86IModI32,
     X86MovI32,
     X86LoadI32,
     X86LoadConstantI32,
@@ -427,7 +623,10 @@ class X86(standardmachine.StandardMachine):
         print("x86 dag fixups")
         newnodes = []
         for n in dag.nodes:
-            if type(n.instr) == ir.Binop and (n.instr.op in ['+','*'] ):
+            binops = [
+                '+','*','-','<<','>>','/', '%' ,
+            ]
+            if type(n.instr) == ir.Binop and (n.instr.op in binops ):
                 print("fixing up binop in DAG")
                 #add a,b,c
                 # -------
@@ -453,24 +652,33 @@ class X86(standardmachine.StandardMachine):
             dag.nodes.append(n)
     
     def blockFixups(self,block):
-        self.mulFixups(block)
+        self.muldivFixups(block)
+        self.shiftFixups(block)
         self.retFixups(block)
         #self.callFixups(block)
     
-    def mulFixups(self,block):
+    def muldivFixups(self,block):
         idx = 0
         blocklen = len(block)
         while idx < blocklen:
             instr = block[idx]
-            if type(instr) == X86IMultI32:
+            if type(instr) in [X86IMultI32,X86IDivI32,X86IModI32]:
                 if type(instr.read[0]) == ir.I32:
+                    
+                        
                     eax = getRegisterByName('eax')
                     edx = getRegisterByName('edx')
+                    
+                    if type(instr) == X86IModI32:
+                        resultReg = edx
+                    else:
+                        resultReg = eax
+                    
                     mov1 = X86MovI32()
                     mov2 = X86MovI32()
                     mov1.read = [instr.read[0]]
                     mov1.assigned = [eax]
-                    mov2.read = [eax]
+                    mov2.read = [resultReg]
                     mov2.assigned = [instr.assigned[0]]
                     instr.read[0] = eax
                     instr.assigned = [eax,edx]
@@ -481,7 +689,26 @@ class X86(standardmachine.StandardMachine):
                 else:
                     print("unsupported type for mul fixups")
             idx += 1
-    
+
+    def shiftFixups(self,block):
+        idx = 0
+        blocklen = len(block)
+        while idx < blocklen:
+            instr = block[idx]
+            if type(instr) in [X86SHLI32,X86SHRI32]:
+                if type(instr.read[1]) == ir.I32:
+                    ecx = getRegisterByName('ecx')
+                    mov1 = X86MovI32()
+                    mov1.read = [instr.read[1]]
+                    mov1.assigned = [ecx]
+                    instr.read[1] = ecx
+                    block.insert(idx,mov1)
+                    idx += 1
+                    blocklen += 1
+                else:
+                    print("unsupported type for mul fixups")
+            idx += 1
+
     def retFixups(self,block):
         idx = 0
         blocklen = len(block)

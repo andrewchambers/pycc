@@ -10,7 +10,7 @@ class CFrontend(object):
     @staticmethod
     def translateModule(fname):
         print("parsing file")
-        ast = parse_file(fname,use_cpp=False)
+        ast = parse_file(fname,use_cpp=True)
         ast.show()
         print("generating symtab")
         stb = symtab.SymTab()
