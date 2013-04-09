@@ -78,15 +78,69 @@ class IRGenerator(c_ast.NodeVisitor):
         
         lv = self.visit(node.lvalue)
         rv = self.visit(node.rvalue)
+        
         if rv.lval:
             rv = self.genDeref(rv)
-        if lv.lval:
-            op = ir.Store(lv,rv)
-            self.curBasicBlock.append(op)
-            result = self.genDeref(lv)
-            return result
-        else:
+        
+        if not lv.lval:
             raise Exception("attemping to assign to a non lvalue!")
+        
+        if node.op in ['+=','-=' ,'/=','^=','|=','&=','*=','%=']:
+            val = ir.I32()
+            result = ir.I32()
+            self.curBasicBlock.append(ir.Deref(val,lv))
+            self.curBasicBlock.append(ir.Binop(node.op[0],result,val,rv))
+        else:
+            if node.op != '=' :
+                raise Exception("Bug - unknown assignment op %s" % node.op)
+            result = rv
+                
+        self.curBasicBlock.append(ir.Store(lv,result))
+        return result
+
+    def visit_UnaryOp(self,node):
+        
+        lv = self.visit(node.expr)
+        
+        if node.op in ['++','--']:
+            if not lv.lval:
+                raise Exception("cant perform pre(%s) on a non lval" % node.op)
+            val = ir.I32()
+            constval = ir.I32()
+            result = ir.I32()
+            self.curBasicBlock.append(ir.Deref(val,lv))
+            self.curBasicBlock.append(ir.LoadConstant(constval,ir.ConstantI32(1)))
+            self.curBasicBlock.append(ir.Binop(node.op[0],result,val,constval))
+            self.curBasicBlock.append(ir.Store(lv,result))
+            return result
+        elif node.op in ['p++','p--']:
+            
+            if not lv.lval:
+                raise Exception("cant perform post(%s) on a non lval" % node.op[1:])
+            val = ir.I32()
+            constval = ir.I32()
+            result = ir.I32()
+            self.curBasicBlock.append(ir.Deref(val,lv))
+            self.curBasicBlock.append(ir.LoadConstant(constval,ir.ConstantI32(1)))
+            self.curBasicBlock.append(ir.Binop(node.op[1],result,val,constval))
+            self.curBasicBlock.append(ir.Store(lv,result))
+            return val
+        
+        elif node.op == '&':
+            
+            if not lv.lval:
+                raise Exception("cannot get the address of a non lval")
+            
+            lv.lval = False
+            return lv
+        
+        elif node.op == '*':
+            lv.lval = True
+            return lv
+        else:
+            raise Exception("bug - unhandle unary op %s" % node.op)
+                
+        
 
     def visit_BinaryOp(self,node):
         

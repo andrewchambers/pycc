@@ -7,12 +7,12 @@ from backend.instructionselector import *
 from backend.selectiondag import *
 
 
-class X86IMultI32(machineinstruction.MI):
+class X86BasicBinopI32(machineinstruction.MI):
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
-        if type(node.instr) != ir.Binop or node.instr.op != '*':
+        if type(node.instr) != ir.Binop or node.instr.op != cls.op:
             return None
         
         if len(node.ins) != 2:
@@ -31,97 +31,144 @@ class X86IMultI32(machineinstruction.MI):
             return None
         
         def repl():
-            m = X86IMultI32()
+            m = cls()
             m.assigned = node.instr.assigned
             m.read = node.instr.read
             node.instr = m
         
         return InstructionMatch(repl,1)
 
+
+
+class X86IMultI32(X86BasicBinopI32):
+    op = '*'
+    
     def asm(self):
         return "imul %%%s"%(self.read[1])
 
-class X86IDivI32(machineinstruction.MI):
+class X86IDivI32(X86BasicBinopI32):
     
-    @staticmethod
-    def match(dag,node):
-        
-        
-        if type(node.instr) != ir.Binop or node.instr.op != '/':
-            return None
-        
-        
-        if len(node.ins) != 2:
-            return None
-            
-        
-        if type(node.instr.read[0]) != ir.I32:
-            return None
-        
-        
-        if type(node.instr.read[1]) != ir.I32:
-            return None
-        
-        
-        if type(node.instr.assigned[0]) != ir.I32:
-            return None
-        
-        
-        if node.instr.assigned[0] != node.instr.read[0]:
-            return None
-        
-        
-        def repl():
-            d = X86IDivI32()
-            d.assigned = node.instr.assigned
-            d.read = node.instr.read
-            node.instr = d
-        
-        return InstructionMatch(repl,1)
-
+    op = '/'
+    
     def asm(self):
         return "cdq; idiv %%%s"%(self.read[1])
 
-class X86IModI32(machineinstruction.MI):
-    
-    @staticmethod
-    def match(dag,node):
-        
-        
-        if type(node.instr) != ir.Binop or node.instr.op != '%':
-            return None
-        
-        
-        if len(node.ins) != 2:
-            return None
-            
-        
-        if type(node.instr.read[0]) != ir.I32:
-            return None
-        
-        
-        if type(node.instr.read[1]) != ir.I32:
-            return None
-        
-        
-        if type(node.instr.assigned[0]) != ir.I32:
-            return None
-        
-        
-        if node.instr.assigned[0] != node.instr.read[0]:
-            return None
-        
-        
-        def repl():
-            d = X86IModI32()
-            d.assigned = node.instr.assigned
-            d.read = node.instr.read
-            node.instr = d
-        
-        return InstructionMatch(repl,1)
-
+class X86IModI32(X86BasicBinopI32):
+    op = '%'
     def asm(self):
         return "cdq; idiv %%%s"%(self.read[1])
+
+
+class X86SubI32(X86BasicBinopI32):
+    op = '-'
+    def asm(self):
+        return "sub %%%s,%%%s"%(self.read[1],self.assigned[0])
+
+class X86SHLI32(X86BasicBinopI32):
+    op = '<<'
+    def asm(self):
+        return "shl %%cl,%%%s"%(self.assigned[0])
+
+class X86SHRI32(X86BasicBinopI32):
+    op = '>>'
+    def asm(self):
+        return "shr %%cl,%%%s"%(self.assigned[0])
+
+class X86AddI32(X86BasicBinopI32):
+    op = '+'
+    def asm(self):
+        return "add %%%s,%%%s"%(self.read[1],self.assigned[0])
+
+class X86XorI32(X86BasicBinopI32):
+    op = '^'
+    def asm(self):
+        return "xor %%%s,%%%s"%(self.read[1],self.assigned[0])
+        
+class X86OrI32(X86BasicBinopI32):
+    op = '|'
+    def asm(self):
+        return "or %%%s,%%%s"%(self.read[1],self.assigned[0])
+
+class X86AndI32(X86BasicBinopI32):
+    op = '&'
+    def asm(self):
+        return "and %%%s,%%%s"%(self.read[1],self.assigned[0])
+
+class X86EqI32(X86BasicBinopI32):
+    op = '=='
+    
+    def asm(self):
+        
+        if self.read[1] == self.assigned[0]:
+            return "movl $1, %%%s" % self.read[1]
+            
+        args = {'r' : self.read[1] ,'w' : self.assigned[0]}
+        ret =  \
+        "xorl %%%(r)s, %%%(w)s; " + \
+        "shrl $1,%%%(w)s; " + \
+        "adcl $-1,%%%(w)s; " + \
+        "shrl $31,%%%(w)s;"
+        
+        return ret % args
+
+class X86NeI32(X86BasicBinopI32):
+    op = '!='
+    
+    def asm(self):
+        
+        if self.read[1] == self.assigned[0]:
+            return "movl $0, %%%s" % self.read[1]
+        
+        args = {'r' : self.read[1] ,'w' : self.assigned[0]}
+        ret =  \
+        "subl %%%(r)s,%%%(w)s; " + \
+        "adcl $-1,%%%(w)s; " + \
+        "adcl %%%(w)s,%%%(w)s; " + \
+        "andl $1,%%%(w)s"
+        
+        return ret % args
+
+class X86GtI32(X86BasicBinopI32):
+    op = '>'
+    def asm(self):
+        
+        if self.read[1] == self.assigned[0]:
+            return "movl $0, %%%s" % self.read[1]
+        
+        args = {'r' : self.read[1] ,'w' : self.assigned[0]}
+        
+        
+        ret =  \
+        "pushl %%%(r)s; " + \
+        "xorl %%%(w)s,%%%(r)s; " + \
+        "andl %%%(r)s,%%%(w)s; " + \
+        "sarl $1,%%%(r)s; " + \
+        "sbbl %%%(r)s,%%%(w)s; " + \
+        "shrl $31,%%%(w)s; " + \
+        "popl %%%(r)s"
+        
+        return ret % args
+    
+class X86LtI32(X86BasicBinopI32):
+    op = '<'
+    def asm(self):
+        
+        if self.read[1] == self.assigned[0]:
+            return "movl $0, %%%s" % self.read[1]
+        
+        args = {'r' : self.read[1] ,'w' : self.assigned[0]}
+        
+        ret =  \
+        "pushl %%%(r)s; " + \
+        "xorl %%%(w)s,%%%(r)s; " + \
+        "andl %%%(r)s,%%%(w)s; " + \
+        "sarl $1,%%%(r)s; " + \
+        "sbbl %%%(r)s,%%%(w)s; " + \
+        "shrl $31,%%%(w)s; " + \
+        "popl %%%(r)s"
+        
+        return ret % args
+    
 
 class X86LoadConstantI32(machineinstruction.MI):
     
@@ -129,8 +176,8 @@ class X86LoadConstantI32(machineinstruction.MI):
         machineinstruction.MI.__init__(self)
         self.const = const
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.LoadConstant:
             return None
@@ -157,8 +204,8 @@ class X86MovI32(machineinstruction.MI):
     def isMove(self):
         return True
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.Move:
             return None
@@ -184,155 +231,10 @@ class X86MovI32(machineinstruction.MI):
     def asm(self):
         return "mov %%%s,%%%s"%(self.read[0],self.assigned[0])
 
-
-class X86AddI32(machineinstruction.MI):
-    
-    @staticmethod
-    def match(dag,node):
-        
-        
-        if type(node.instr) != ir.Binop or node.instr.op != '+':
-            return None
-        
-        if len(node.ins) != 2:
-            return None
-        
-        if type(node.instr.assigned[0]) != ir.I32:
-            return None
-        
-        if type(node.instr.read[0]) != ir.I32:
-            return None
-            
-        if type(node.instr.read[1]) != ir.I32:
-            return None
-        
-        if node.instr.assigned[0] != node.instr.read[0]:
-            return None
-        
-        def repl():
-            add = X86AddI32()
-            add.assigned = node.instr.assigned
-            add.read = node.instr.read
-            node.instr = add
-        
-        return InstructionMatch(repl,1)
-
-    def asm(self):
-        return "add %%%s,%%%s"%(self.read[1],self.assigned[0])
-
-
-class X86SubI32(machineinstruction.MI):
-    
-    @staticmethod
-    def match(dag,node):
-        
-        
-        if type(node.instr) != ir.Binop or node.instr.op != '-':
-            return None
-        
-        if len(node.ins) != 2:
-            return None
-        
-        if type(node.instr.assigned[0]) != ir.I32:
-            return None
-        
-        if type(node.instr.read[0]) != ir.I32:
-            return None
-            
-        if type(node.instr.read[1]) != ir.I32:
-            return None
-        
-        if node.instr.assigned[0] != node.instr.read[0]:
-            return None
-        
-        def repl():
-            sub = X86SubI32()
-            sub.assigned = node.instr.assigned
-            sub.read = node.instr.read
-            node.instr = sub
-        
-        return InstructionMatch(repl,1)
-
-    def asm(self):
-        return "sub %%%s,%%%s"%(self.read[1],self.assigned[0])
-
-class X86SHLI32(machineinstruction.MI):
-    
-    @staticmethod
-    def match(dag,node):
-        
-        
-        if type(node.instr) != ir.Binop or node.instr.op != '<<':
-            return None
-        
-        if len(node.ins) != 2:
-            return None
-        
-        if type(node.instr.assigned[0]) != ir.I32:
-            return None
-        
-        if type(node.instr.read[0]) != ir.I32:
-            return None
-            
-        if type(node.instr.read[1]) != ir.I32:
-            return None
-        
-        if node.instr.assigned[0] != node.instr.read[0]:
-            return None
-        
-        def repl():
-            shl = X86SHLI32()
-            shl.assigned = node.instr.assigned
-            shl.read = node.instr.read
-            node.instr = shl
-        
-        return InstructionMatch(repl,1)
-
-    def asm(self):
-        return "shl %%cl,%%%s"%(self.assigned[0])
-
-class X86SHRI32(machineinstruction.MI):
-    
-    @staticmethod
-    def match(dag,node):
-        
-        
-        if type(node.instr) != ir.Binop or node.instr.op != '>>':
-            return None
-        
-        if len(node.ins) != 2:
-            return None
-        
-        if type(node.instr.assigned[0]) != ir.I32:
-            return None
-        
-        if type(node.instr.read[0]) != ir.I32:
-            return None
-            
-        if type(node.instr.read[1]) != ir.I32:
-            return None
-        
-        if node.instr.assigned[0] != node.instr.read[0]:
-            return None
-        
-        def repl():
-            shr = X86SHRI32()
-            shr.assigned = node.instr.assigned
-            shr.read = node.instr.read
-            node.instr = shr
-        
-        return InstructionMatch(repl,1)
-
-    def asm(self):
-        return "shr %%cl,%%%s"%(self.assigned[0])
-
-
-
-
 class X86LoadLocalAddr(machineinstruction.MI):
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.LoadLocalAddr:
             return None
@@ -360,8 +262,8 @@ class X86LoadLocalAddr(machineinstruction.MI):
 class X86LoadParamAddr(machineinstruction.MI):
     
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.LoadParamAddr:
             return None
@@ -389,8 +291,8 @@ class X86LoadParamAddr(machineinstruction.MI):
 class X86LoadLocalI32(machineinstruction.MI):
     
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         
         if type(node.instr) != ir.Deref:
@@ -437,8 +339,8 @@ class X86LoadLocalI32(machineinstruction.MI):
 class X86StoreLocalI32(machineinstruction.MI):
     
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.Store:
             return None
@@ -473,8 +375,8 @@ class X86StoreLocalI32(machineinstruction.MI):
 
 class X86LoadI32(machineinstruction.MI):
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.Deref:
             return None
@@ -498,8 +400,8 @@ class X86LoadI32(machineinstruction.MI):
 
 class X86StoreI32(machineinstruction.MI):
     
-    @staticmethod
-    def match(dag,node):
+    @classmethod
+    def match(cls,dag,node):
         
         if type(node.instr) != ir.Store:
             return None
@@ -540,7 +442,7 @@ class X86StackSaveI32(machineinstruction.MI):
 class X86Jmp(machineinstruction.MI):
     
     def asm(self):
-        return "jmp %s"%(self.getSuccessors()[0].name)
+        return "jmp .%s"%(self.getSuccessors()[0].name)
 
 
 class X86Branch(machineinstruction.MI):
@@ -548,11 +450,11 @@ class X86Branch(machineinstruction.MI):
     def asm(self):
         
         if self.successors[0] != None and self.successors[1] == None:
-            return "test %s; jnz %s"%(self.read[0],self.successors[0])
+            return "test %%%s,%%%s; jnz .%s"%(self.read[0],self.read[0],self.successors[0])
         elif self.successors[0] == None and self.successors[1] != None:
-            return "test %s; jz %s"%(self.read[0],successors[1])
+            return "test %%%s,%%%s; jz .%s"%(self.read[0],self.read[0],successors[1])
         else:
-            return "test %s; jnz %s; jmp %s"%(self.read[0],self.successors[0],successors[1])
+            return "test %%%s,%%%s; jnz .%s; jmp %s"%(self.read[0],self.read[0],self.successors[0],successors[1])
 
 class X86Nop(machineinstruction.MI):
     def asm(self):
@@ -593,6 +495,9 @@ instructions = [
     X86IMultI32,
     X86IDivI32,
     X86IModI32,
+    X86AndI32,
+    X86XorI32,
+    X86OrI32,
     X86MovI32,
     X86LoadI32,
     X86LoadConstantI32,
@@ -600,7 +505,11 @@ instructions = [
     X86LoadLocalAddr,
     #X86StoreLocalI32,
     X86StoreI32,
-#    X86PushI32,
+    X86EqI32,
+    X86NeI32,
+    X86GtI32,
+    X86LtI32,
+#   X86PushI32,
 ]
 
 
@@ -624,7 +533,8 @@ class X86(standardmachine.StandardMachine):
         newnodes = []
         for n in dag.nodes:
             binops = [
-                '+','*','-','<<','>>','/', '%' ,
+              '==' , '>' , '<' , '<=' , '>=' , '!=', 
+              '+','*','-','<<','>>','/', '%', '|' , '&' , '^' ,
             ]
             if type(n.instr) == ir.Binop and (n.instr.op in binops ):
                 print("fixing up binop in DAG")
