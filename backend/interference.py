@@ -23,8 +23,8 @@ class InterferenceGraph(object):
         #init the sucessor table
         successors = {}
         for block in function:
-            successors[block] = list(block.getReachableBlocks())
-        
+            successors[block] = list(block[-1].getSuccessors())
+
         changed = True
         while changed:
             changed = False
@@ -36,10 +36,10 @@ class InterferenceGraph(object):
                     newout = set()
                 else:
                     for s in successors[block]:
-                        newout = newout.union(blockstate[2])
-                
+                        newout = newout.union(blockstates[s][2])
+                    newout = newout.intersection( blockstate[1].union(blockstate[2]) )
                 newin = blockstate[0].union(newout - blockstate[1])
-                
+                 
                 if blockstate[2] != newin or blockstate[3] != newout:
                     blockstate[2] = newin
                     blockstate[3] = newout
@@ -48,7 +48,7 @@ class InterferenceGraph(object):
         liveness = []
         
         for block in blockstates:
-            
+            #print("XXXXX %s: gen %s kill %s livein %s liveout %s"% (block,blockstates[block][0],blockstates[block][1],blockstates[block][2],blockstates[block][3]))
             live = blockstates[block][3]
             #work backwards from liveout
             for instr in reversed(block):
@@ -64,8 +64,8 @@ class InterferenceGraph(object):
                 for v in instr.read:
                     live.add(v)
                 
-                #print("XXXX %s" % instr)
-                #print("\t%s" % liveness[-1])
+                print("XXXX %s" % instr)
+                print("\t%s" % liveness[-1])
 
                 
         self.nodes = function.variables

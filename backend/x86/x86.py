@@ -671,7 +671,7 @@ class X86(standardmachine.StandardMachine):
             
             next = instr.getSuccessors()[0]
             if next == None:
-                return X86Nop()
+                return None
             newJump = X86Jmp()
             newJump.setSuccessors(instr.getSuccessors())
             return newJump
@@ -681,7 +681,7 @@ class X86(standardmachine.StandardMachine):
             
             trueBlock,falseBlock = instr.getSuccessors()
             if trueBlock == None and falseBlock == None:
-                return X86Nop()
+                return None
             
             newBranch = X86Branch()
             newBranch.setSuccessors(instr.getSuccessors())

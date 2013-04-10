@@ -198,8 +198,16 @@ class Jmp(Terminator):
 class Identity(Instruction):
     def __init__(self,v):
         Instruction.__init__(self)
-        self.read = []
         self.assigned = [v]
+
+class Phi(Instruction):
+    def __init__(self,*args):
+        args = list(args)
+        self.read = args[1:]
+        self.assigned = [args[0]]
+    
+    def __repr__(self):
+        return "%s = Phi %s" % (self.assigned[0],self.read)
 
 class Move(Instruction):
     def __init__(self,l,r):

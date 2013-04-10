@@ -68,8 +68,6 @@ class RegisterAllocator(object):
     
     def spill(self,f,ig):
         
-        
-        
         for  b in f:
             idx = 0
             while idx != len(b):

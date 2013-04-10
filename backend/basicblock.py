@@ -15,6 +15,9 @@ class BasicBlock(object):
     def __setitem__(self,k,v):
         self.opcodes[k] = v
     
+    def __delitem__(self,idx):
+        del self.opcodes[idx]
+    
     def insert(self,idx,op):
         self.opcodes.insert(idx,op)
     

@@ -54,12 +54,15 @@ class StandardMachine(target.Target):
         
         self.doInstructionSelection(f)
         
+        #we are no longer in ssa after this point
+        
         for block in f:
             self.blockFixups(block)
         
+        self.removePhiNodes(f)
+        
         if self.args.show_all or self.args.show_md_function_preallocation:
             irvis.showFunction(f)
-        
         
         ig = interference.InterferenceGraph(f)
         if self.args.show_all or self.args.show_interference:
@@ -95,7 +98,11 @@ class StandardMachine(target.Target):
                 if target == linear[nextIdx]:
                     terminator.swapSuccessor(target,None)
             
-            linear[idx][-1] = self.terminatorSelection(terminator)
+            terminator = self.terminatorSelection(terminator)
+            if terminator == None:
+                del linear[idx][-1]
+            else:
+                linear[idx][-1] = terminator
         
         ofile.write(".text\n")
         ofile.write(".globl %s\n" % f.name)
@@ -112,7 +119,31 @@ class StandardMachine(target.Target):
     def blockFixups(self,block):
         raise Exception("unimplemented")
     
-    
+    def removePhiNodes(self,f):
+        
+        mappings = []
+        
+        for block in f:
+            idx = 0
+            while idx < len(block):
+                instr = block[idx]
+                if type(instr) == ir.Phi:
+                    mappings.append( [instr.assigned[0]] + instr.read)
+                    del block[idx]
+                    continue
+                idx += 1
+                
+        print (mappings)
+        for block in f:
+            for instr in block:
+                for mapping in mappings:
+                    newV = mapping[0]
+                    others = mapping[1:]
+                    for oldV in others:
+                        instr.swapVar(oldV,newV)
+        
+        
+        
     def preEmitCleanup(self,f):
         for block in f:
             idx = 0
@@ -143,7 +174,7 @@ class StandardMachine(target.Target):
             isel.select(self,sd)
             if self.args.show_all or self.args.show_md_selection_dag:
                 dagvis.showSelDAG(sd)
-            newblockops = [node.instr for node in sd.ordered()]
+            newblockops = [node.instr for node in sd.ordered() if type(node.instr) != ir.Identity]
             b.opcodes = newblockops
     
     def branchSelection(self,instr):

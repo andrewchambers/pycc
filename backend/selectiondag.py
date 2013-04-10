@@ -170,6 +170,16 @@ class SelectionDag(object):
                 assigners[v].append([node,idx])
             
         
+        for instr in block:
+            for v in instr.read:
+                if v not in assigners:
+                    assigners[v] = []
+                    identity = SDNode()
+                    dummy = ir.Identity(v)
+                    identity.instr = dummy
+                    nodes.insert(0,identity) # we are relying on order
+                    assigners[v].append([identity,0])
+        
         for node in nodes:
             if node.instr.readsMem():
                 if lastWrite != None:
@@ -183,6 +193,7 @@ class SelectionDag(object):
             for idx,v in enumerate(instr.read):
                 ass = assigners[v]
                 if len(ass) != 1:
+                    print v,ass
                     raise Exception("block not in SSA")
                 head = node.ins[idx]
                 tail = ass[0][0].outs[ass[0][1]]

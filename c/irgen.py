@@ -145,18 +145,69 @@ class IRGenerator(c_ast.NodeVisitor):
     def visit_BinaryOp(self,node):
         
         lv = self.visit(node.left)
-        rv = self.visit(node.right)
-        
-        if rv.lval:
-            rv = self.genDeref(rv)
-
         if lv.lval:
             lv = self.genDeref(lv)
-            
         
-        result = ir.I32()
-        self.curBasicBlock.append(ir.Binop(node.op,result,lv,rv))
-        return result
+        # a short circuit binop requires some branches
+        if node.op in ['&&', '||']:
+            constZero = ir.I32()
+            result1 = ir.I32()
+            result2 = ir.I32()
+            result3 = ir.I32()
+            
+            compareResult = ir.I32()
+            
+            self.curBasicBlock.append(ir.LoadConstant(constZero,ir.ConstantI32(0)))
+            self.curBasicBlock.append(ir.Binop('!=',compareResult,lv,constZero))
+            ifZero = basicblock.BasicBlock()
+            ifNotZero = basicblock.BasicBlock()
+            next = basicblock.BasicBlock()
+            
+            self.curBasicBlock.append(ir.Branch(compareResult,ifNotZero,ifZero))
+            
+            if node.op == '&&':
+                shortCircuit = ifZero
+                other = ifNotZero
+                shortCircuitResult = 0
+            else:
+                shortCircuit = ifNotZero
+                other = ifZero
+                shortCircuitResult = 1
+            
+            
+            self.curBasicBlock = shortCircuit
+            self.curBasicBlock.append(ir.LoadConstant(result1,ir.ConstantI32(shortCircuitResult)))
+            self.curBasicBlock.append(ir.Jmp(next))
+            
+            self.curBasicBlock = other
+            rv = self.visit(node.right)
+            if lv.lval:
+                rv = self.genDeref(rv)
+            
+            #create some new virtual registers
+            constZero = ir.I32()
+            
+            self.curBasicBlock.append(ir.LoadConstant(constZero,ir.ConstantI32(0)))
+            self.curBasicBlock.append(ir.Binop('!=',result2,rv,constZero))
+            self.curBasicBlock.append(ir.Jmp(next))
+            
+            self.curBasicBlock = next
+            self.curBasicBlock.append(ir.Phi(result3,result2,result1))
+            
+            return result3
+            
+        else: # a normal binop
+            rv = self.visit(node.right)
+            
+            if rv.lval:
+                rv = self.genDeref(rv)
+            
+            if lv.lval:
+                lv = self.genDeref(lv)
+            
+            result = ir.I32()
+            self.curBasicBlock.append(ir.Binop(node.op,result,lv,rv))
+            return result
     
     def visit_Decl(self,node):
         if node.init:
