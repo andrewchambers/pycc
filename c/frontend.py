@@ -1,7 +1,6 @@
 from pycparser import parse_file
 
 import symtab
-import typecheck
 import irgen
 
 
