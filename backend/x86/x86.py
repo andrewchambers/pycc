@@ -409,8 +409,12 @@ class X86StoreI32(machineinstruction.MI):
         if len(node.ins) != 2:
             return None
         
-        if type(node.instr.read[0]) != ir.I32:
+        if type(node.instr.read[0]) != ir.Pointer:
             return None
+        
+        if type(node.instr.read[1]) != ir.I32:
+            return None
+        
         
         def repl():
             st = X86StoreI32()
@@ -514,10 +518,10 @@ instructions = [
 
 
 registers = [
-    standardmachine.Register('eax',[ir.I32]),
-    standardmachine.Register('ebx',[ir.I32]),
-    standardmachine.Register('ecx',[ir.I32]),
-    standardmachine.Register('edx',[ir.I32]),
+    standardmachine.Register('eax',[ir.I32,ir.Pointer]),
+    standardmachine.Register('ebx',[ir.I32,ir.Pointer]),
+    standardmachine.Register('ecx',[ir.I32,ir.Pointer]),
+    standardmachine.Register('edx',[ir.I32,ir.Pointer]),
 ]
 
 def getRegisterByName(n):

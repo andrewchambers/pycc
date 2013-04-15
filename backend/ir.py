@@ -1,29 +1,29 @@
 
 counter = 0
 
-class Variable(object):
+class VirtualRegister(object):
     
     def __init__(self):
         global counter
         counter += 1
         self.name = "v%d"%counter
-        self.lval = False
-        self.pcount = 0
     
     def isPhysical(self):
         return False
     
     def __repr__(self):
         tstr = "%s" % self.__class__.__name__
-        if self.lval:
-            tstr += " lval"
-        stars = "*"* self.pcount
-        return "(%s%s) %s" %(tstr,stars,self.name)
+        return "(%s) %s" %(tstr,self.name)
     
     def getSize(self):
         raise Exception("no size avaliable")
     
-class I32(Variable):
+class I32(VirtualRegister):
+    
+    def getSize(self):
+        return 4
+
+class Pointer(VirtualRegister):
     
     def getSize(self):
         return 4
