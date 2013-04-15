@@ -25,10 +25,11 @@ class UnusedVars(functionpass.FunctionPass):
                 #print(unused)
                 
                 for b in f:
+                    raise Exception("bug")
                     for k,i in enumerate(b.opcodes):
                         ass = set(i.assigned)
                         if len(ass) and ass.issubset(unused):
-                            del b.opcodes[k]
+                            del b[k]
                             modified = True
                             deleted = True
             return modified
