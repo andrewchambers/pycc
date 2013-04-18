@@ -9,6 +9,7 @@ from passes import jumpfix
 from passes import blockmerge
 from passes import unused
 from passes import branchreplace
+from passes import constantfold
 
 import instructionselector
 import interference
@@ -152,6 +153,9 @@ class StandardMachine(target.Target):
         
     def doIROpt(self,func):
         while True:
+            #irvis.showFunction(func)
+            if constantfold.ConstantFold().runOnFunction(func):
+                continue
             if jumpfix.JumpFix().runOnFunction(func):
                 continue
             if blockmerge.BlockMerge().runOnFunction(func):

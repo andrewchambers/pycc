@@ -35,6 +35,15 @@ class Constant(object):
 class ConstantI32(Constant):
     def __init__(self,v):
         self.value = int(v)
+    
+    def __mul__(self,other):
+        return ConstantI32(self.value * other.value)
+    
+    def __add__(self,other):
+        return ConstantI32(self.value + other.value)
+    
+    def __sub__(self,other):
+        return ConstantI32(self.value - other.value)
 
 class Instruction(object):
     

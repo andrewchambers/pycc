@@ -18,13 +18,13 @@ class X86BasicBinopI32(machineinstruction.MI):
         if len(node.ins) != 2:
             return None
         
-        if type(node.instr.read[0]) != ir.I32:
+        if type(node.instr.read[0]) not in (ir.I32,ir.Pointer):
             return None
         
-        if type(node.instr.read[1]) != ir.I32:
+        if type(node.instr.read[1]) not in (ir.I32,ir.Pointer):
             return None
         
-        if type(node.instr.assigned[0]) != ir.I32:
+        if type(node.instr.assigned[0]) not in (ir.I32,ir.Pointer):
             return None
         
         if node.instr.assigned[0] != node.instr.read[0]:
@@ -213,10 +213,10 @@ class X86MovI32(machineinstruction.MI):
         if len(node.ins) != 1:
             return None
             
-        if type(node.instr.read[0]) != ir.I32:
+        if type(node.instr.read[0]) not in (ir.I32,ir.Pointer):
             return None
         
-        if type(node.instr.assigned[0]) != ir.I32:
+        if type(node.instr.assigned[0]) not in (ir.I32,ir.Pointer):
             return None
         
         
@@ -384,7 +384,7 @@ class X86LoadI32(machineinstruction.MI):
         if len(node.ins) != 1:
             return None
         
-        if type(node.instr.assigned[0]) != ir.I32:
+        if type(node.instr.assigned[0]) not in (ir.I32,ir.Pointer):
             return None
         
         def repl():
@@ -412,7 +412,7 @@ class X86StoreI32(machineinstruction.MI):
         if type(node.instr.read[0]) != ir.Pointer:
             return None
         
-        if type(node.instr.read[1]) != ir.I32:
+        if type(node.instr.read[1]) not in (ir.I32,ir.Pointer):
             return None
         
         
@@ -522,6 +522,8 @@ registers = [
     standardmachine.Register('ebx',[ir.I32,ir.Pointer]),
     standardmachine.Register('ecx',[ir.I32,ir.Pointer]),
     standardmachine.Register('edx',[ir.I32,ir.Pointer]),
+    standardmachine.Register('edi',[ir.I32,ir.Pointer]),
+    standardmachine.Register('esi',[ir.I32,ir.Pointer]),
 ]
 
 def getRegisterByName(n):

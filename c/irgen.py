@@ -61,6 +61,8 @@ class IRGenerator(c_ast.NodeVisitor):
         self.symTab = SymbolTable()
         self.symTab.pushScope()
         self.module = module.Module()
+        self.gotojumps = set()
+        self.labelTable = {}
         
         for ext in ast.ext:
             if type(ext) == c_ast.FuncDef:
@@ -97,29 +99,200 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_Constant(node)
         elif type(node) == c_ast.BinaryOp:
             return self.visit_Binop(node)
+        elif type(node) == c_ast.UnaryOp:
+            return self.visit_UnaryOp(node)
+        elif type(node) == c_ast.Assignment:
+            return self.visit_Assignment(node)
+        elif type(node) == c_ast.ArrayRef:
+            return self.visit_ArrayRef(node)
         elif type(node) == c_ast.ID:
             return self.visit_ID(node)
+        elif type(node) == c_ast.If:
+            return self.visit_If(node)
+        elif type(node) == c_ast.Label:
+            return self.visit_Label(node)
+        elif type(node) == c_ast.Goto:
+            return self.visit_Goto(node)
+        elif type(node) == c_ast.For:
+            return self.visit_For(node)
         else:
             raise Exception("unhandled ast node type  %s" % str(node))
     
-    def visit_inFunctionDecl(self,decl):
+    def visit_inFunctionDecl(self,decl,depth=0):
         
-        t = self.typeTab.lookupType(decl.type.type.names[0])
-        sym = LocalSym(decl.name,t)
-        self.symTab.addSymbol(sym)
-        self.curFunction.addStackSlot(sym.slot)
-        initializer = self.inFunctionDispatch(decl.init)
-        
-        v = ir.Pointer()
-        op = ir.LoadLocalAddr(v,sym)
-        self.curBasicBlock.append(op)
+        if type(decl.type) == c_ast.TypeDecl:
+            
+            t = self.typeTab.lookupType(decl.type.type.names[0])
+            sym = LocalSym(decl.name,t)
+            self.symTab.addSymbol(sym)
+            self.curFunction.addStackSlot(sym.slot)
+            if decl.init:
+                initializer = self.inFunctionDispatch(decl.init)
+                v = ir.Pointer()
+                op = ir.LoadLocalAddr(v,sym)
+                self.curBasicBlock.append(op)
 
-        if initializer.lval:
-            initializer = self.genDeref(initializer)
-        op = ir.Store(v,initializer.reg)
-        self.curBasicBlock.append(op)
+                if initializer.lval:
+                    initializer = self.genDeref(initializer)
+                op = ir.Store(v,initializer.reg)
+                self.curBasicBlock.append(op)
+            
+        elif type(decl.type) == c_ast.ArrayDecl:
+            
+            sym = LocalSym(decl.name,self._recursivelyCreateType(decl))
+            self.symTab.addSymbol(sym)
+            self.curFunction.addStackSlot(sym.slot)
+            if decl.init != None:
+                raise Exception("cannot currently handle Array initializers")
         
+        elif type(decl.type) == c_ast.PtrDecl:
+            
+            sym = LocalSym(decl.name,self._recursivelyCreateType(decl))
+            self.symTab.addSymbol(sym)
+            self.curFunction.addStackSlot(sym.slot)
+            if decl.init != None:
+                raise Exception("cannot currently handle Pointer initializers")
+            
+        else:
+            raise Exception("unhandled decl type")
     
+    def _recursivelyCreateType(self,decl):
+        
+        if type(decl.type) == c_ast.ArrayDecl:
+            dim = decl.type.dim
+            if type(dim) != c_ast.Constant and dim.type != 'int':
+                    raise Exception("cannot handle a non integer sized constant array")
+            if type(decl.type.type) == c_ast.TypeDecl:
+                return types.Array(self.typeTab.lookupType(decl.type.type.type.names[0]),int(dim.value))
+            else:
+                return types.Array(self._recursivelyCreateType(decl.type),int(dim.value))
+        elif type(decl.type) == c_ast.PtrDecl:
+            if type(decl.type.type) == c_ast.TypeDecl:
+                return types.Pointer(self.typeTab.lookupType(decl.type.type.type.names[0]))
+            else:
+                return types.Pointer(self._recursivelyCreateType(decl.type))
+        else:
+            raise Exception("XXXX error creating type")
+        
+    def patchDanglingBlocks(self,start,next):
+        def generator():
+            visited = set()
+            stack = [start]
+            while (len(stack)):
+                curblock = stack.pop()
+                if curblock in visited:
+                    continue
+                if curblock is next:
+                    continue
+                visited.add(curblock)
+                yield curblock
+                if len(curblock):
+                    if curblock[-1] not in self.gotojumps:
+                        for b in curblock[-1].getSuccessors():
+                            stack.append(b)
+        
+        for b in generator():
+            if len(b) == 0:
+                b.append(ir.Jmp(next))
+                continue
+            
+            if b[-1].isTerminator():
+                continue
+            
+            if len(b[-1].getSuccessors()) == 0:
+                b.append(ir.Jmp(next))
+                continue
+
+    def visit_Goto(self,node):
+        #XXX bug if redefined label
+        if node.name in self.labelTable:
+            nextblock = self.labelTable[node.name]
+        else:
+            nextblock = basicblock.BasicBlock()
+            self.labelTable[node.name] = nextblock
+        j = ir.Jmp(nextblock)
+        self.gotojumps.add(j)
+        self.curBasicBlock.append(j)
+        
+    def visit_Label(self,node):
+        
+        prevblock = self.curBasicBlock
+        
+        if node.name in self.labelTable:
+            nextblock = self.labelTable[node.name]
+        else:
+            nextblock = basicblock.BasicBlock()
+            self.labelTable[node.name] = nextblock
+        
+        
+        if prevblock.unsafeEnding():
+            prevblock.append(ir.Jmp(nextblock))
+            
+            
+        self.curBasicBlock = nextblock
+        
+        self.inFunctionDispatch(node.stmt)
+        
+
+    def visit_If(self,node):
+        
+        v = self.inFunctionDispatch(node.cond)
+        if v.lval:
+            v = self.genDeref(v)
+        
+        trueblock = basicblock.BasicBlock()
+        falseblock = basicblock.BasicBlock()
+        nxt = basicblock.BasicBlock()
+        br = ir.Branch(v.reg,trueblock,falseblock)
+        
+        self.curBasicBlock.append(br)
+        self.curBasicBlock = trueblock
+        self.inFunctionDispatch(node.iftrue)
+        self.patchDanglingBlocks(trueblock,nxt)
+        
+        if node.iffalse:
+            self.curBasicBlock = falseblock
+            self.inFunctionDispatch(node.iffalse)
+        
+        self.patchDanglingBlocks(falseblock,nxt)
+        self.curBasicBlock = nxt
+
+    def visit_For(self,node):
+        
+        lcmp = basicblock.BasicBlock()
+        lcode = basicblock.BasicBlock()
+        lend = basicblock.BasicBlock()
+        
+        if node.init:
+            self.inFunctionDispatch(node.init)
+            
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(lcmp))
+        
+        self.curBasicBlock = lcmp
+        
+        if node.cond:
+            v = self.inFunctionDispatch(node.cond)
+            
+            if v.lval:
+                v = self.genDeref(v)
+            
+            br = ir.Branch(v.reg,lcode,lend)
+            self.curBasicBlock.append(br)
+        else:
+            if self.curBasicBlock.unsafeEnding():
+                self.curBasicBlock.append(ir.Jmp(lcode))
+        
+        self.curBasicBlock = lcode
+        if node.stmt:
+            self.inFunctionDispatch(node.stmt)
+        if node.next:
+            self.inFunctionDispatch(node.next)
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(lcmp))
+        
+        self.curBasicBlock = lend
+
     def visit_Compound(self,compound):
         self.symTab.pushScope()
         for block_item in compound.block_items:
@@ -148,8 +321,6 @@ class IRGenerator(c_ast.NodeVisitor):
     def visit_Binop(self,node):
         
         lv = self.inFunctionDispatch(node.left)
-        if lv.lval:
-            lv = self.genDeref(lv)
         
         # a short circuit binop requires some branches
         if node.op in ['&&', '||']:
@@ -208,9 +379,11 @@ class IRGenerator(c_ast.NodeVisitor):
             if lv.lval:
                 lv = self.genDeref(lv)
             
-            result = ir.I32()
-            self.curBasicBlock.append(ir.Binop(node.op,result,lv,rv))
-            return result
+            
+            ret = ValTracker(False,types.Int(),None)
+            ret.createVirtualReg()
+            self.curBasicBlock.append(ir.Binop(node.op,ret.reg,lv.reg,rv.reg))
+            return ret
     
     def visit_ID(self,node):
         
@@ -228,17 +401,111 @@ class IRGenerator(c_ast.NodeVisitor):
         else:
             raise Exception("unknown symbol type")
         self.curBasicBlock.append(op)
+        
         return v
-
+    
+    def visit_ArrayRef(self,node):
+        v = self.inFunctionDispatch(node.name)
+        if type(v.type) == types.Array:
+            
+            idx = self.inFunctionDispatch(node.subscript)
+            if idx.lval:
+                idx = self.genDeref(idx)
+            
+            ret = v.index()
+            
+            const = ir.I32()
+            offset = ir.I32() #XXX
+            
+            self.curBasicBlock.append(ir.LoadConstant(const,ir.ConstantI32(ret.type.getSize())))
+            self.curBasicBlock.append(ir.Binop('*',offset,idx.reg,const))
+            self.curBasicBlock.append(ir.Binop('+',ret.reg,v.reg,offset))
+            return ret
+            
+        else:
+            raise Exception("cannot perform an array index on %s %s" % (node,v.type))
+    
     def genDeref(self,val):
-        newV = val.copy()
-        newV.pcount -= 1
-        assert(newV.pcount >= 0)
-        newV.reg = newV.type.createVirtualRegister()
+        newV = val.deref()
         self.curBasicBlock.append(ir.Deref(newV.reg,val.reg))
         return newV
         
         
+    def visit_UnaryOp(self,node):
+        
+        lv = self.inFunctionDispatch(node.expr)
+        
+        if node.op in ['++','--']:
+            if not lv.lval:
+                raise Exception("cant perform pre(%s) on a non lval" % node.op)
+            
+            val = self.genDeref(lv)
+            constval = lv.type.createVirtualReg()
+            result = lv.clone()
+            result.lval = False
+            result.createVirtualReg()
+            self.curBasicBlock.append(ir.LoadConstant(constval,ir.ConstantI32(1)))
+            self.curBasicBlock.append(ir.Binop(node.op[1],result.reg,val.reg,constval))
+            self.curBasicBlock.append(ir.Store(lv.reg,result.reg))
+            return result
+        elif node.op in ['p++','p--']:
+            
+            if not lv.lval:
+                raise Exception("cant perform post(%s) on a non lval" % node.op[1:])
+            val = self.genDeref(lv)
+            constval = lv.type.createVirtualReg()
+            result = lv.clone()
+            result.lval = False
+            result.createVirtualReg()
+            self.curBasicBlock.append(ir.LoadConstant(constval,ir.ConstantI32(1)))
+            self.curBasicBlock.append(ir.Binop(node.op[1],result.reg,val.reg,constval))
+            self.curBasicBlock.append(ir.Store(lv.reg,result.reg))
+            return val
+        
+        elif node.op == '&':
+            
+            if not lv.lval:
+                raise Exception("cannot get the address of a non lval")
+            
+            lv.lval = False
+            return lv
+        
+        elif node.op == '*':
+            if lv.lval:
+                lv = self.genDeref(lv)
+            lv.lval = True
+            return lv
+        else:
+            raise Exception("bug - unhandle unary op %s" % node.op)
+
+    def visit_Assignment(self,node):
+        
+        lv = self.inFunctionDispatch(node.lvalue)
+        rv = self.inFunctionDispatch(node.rvalue)
+        
+        if type(lv.type) == types.Array:
+            raise Exception('cannot assign to an array')
+        
+        if rv.lval:
+            rv = self.genDeref(rv)
+        
+        if not lv.lval:
+            raise Exception("attemping to assign to a non lvalue!")
+        
+        if node.op in ['+=','-=' ,'/=','^=','|=','&=','*=','%=']:
+            val = lv.deref()
+            result = lv.clone()
+            result.lval = False
+            result.createVirtualReg()
+            self.curBasicBlock.append(ir.Deref(val.reg,lv.reg))
+            self.curBasicBlock.append(ir.Binop(node.op[0],result.reg,val.reg,rv.reg))
+        else:
+            if node.op != '=' :
+                raise Exception("Bug - unknown assignment op %s" % node.op)
+            result = rv
+                
+        self.curBasicBlock.append(ir.Store(lv.reg,result.reg))
+        return result
 
 #class Symbol(object):
 #    

@@ -22,14 +22,16 @@ class UnusedVars(functionpass.FunctionPass):
                             assigned.add(v)
                 
                 unused = set([x for x in assigned if x not in read])
-                #print(unused)
                 
+
                 for b in f:
-                    raise Exception("bug")
-                    for k,i in enumerate(b.opcodes):
+                    k = 0
+                    while k < len(b):
+                        i = b[k]
                         ass = set(i.assigned)
                         if len(ass) and ass.issubset(unused):
                             del b[k]
                             modified = True
                             deleted = True
+                        k += 1
             return modified
