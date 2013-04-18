@@ -456,7 +456,7 @@ class X86Branch(machineinstruction.MI):
         if self.successors[0] != None and self.successors[1] == None:
             return "test %%%s,%%%s; jnz .%s"%(self.read[0],self.read[0],self.successors[0])
         elif self.successors[0] == None and self.successors[1] != None:
-            return "test %%%s,%%%s; jz .%s"%(self.read[0],self.read[0],successors[1])
+            return "test %%%s,%%%s; jz .%s"%(self.read[0],self.read[0],self.successors[1])
         else:
             return "test %%%s,%%%s; jnz .%s; jmp %s"%(self.read[0],self.read[0],self.successors[0],successors[1])
 

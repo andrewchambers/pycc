@@ -63,6 +63,8 @@ class IRGenerator(c_ast.NodeVisitor):
         self.module = module.Module()
         self.gotojumps = set()
         self.labelTable = {}
+        self.curBreakTargets = []
+        self.curContinueTargets = []
         
         for ext in ast.ext:
             if type(ext) == c_ast.FuncDef:
@@ -84,6 +86,11 @@ class IRGenerator(c_ast.NodeVisitor):
         self.symTab.pushScope()
         self.inFunctionDispatch(funcdef.body)
         self.symTab.popScope()
+        
+        if self.curBasicBlock.unsafeEnding():
+            retval = ir.I32()
+            self.curBasicBlock.append(ir.LoadConstant(retval,ir.ConstantI32(0)))
+            self.curBasicBlock.append(ir.Ret(retval))
     
     def inFunctionDispatch(self,node):
         
@@ -115,6 +122,12 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_Goto(node)
         elif type(node) == c_ast.For:
             return self.visit_For(node)
+        elif type(node) == c_ast.While:
+            return self.visit_While(node)
+        elif type(node) == c_ast.Break:
+            return self.visit_Break(node)
+        elif type(node) == c_ast.Continue:
+            return self.visit_Continue(node)
         else:
             raise Exception("unhandled ast node type  %s" % str(node))
     
@@ -212,7 +225,8 @@ class IRGenerator(c_ast.NodeVisitor):
             self.labelTable[node.name] = nextblock
         j = ir.Jmp(nextblock)
         self.gotojumps.add(j)
-        self.curBasicBlock.append(j)
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(j)
         
     def visit_Label(self,node):
         
@@ -257,11 +271,62 @@ class IRGenerator(c_ast.NodeVisitor):
         self.patchDanglingBlocks(falseblock,nxt)
         self.curBasicBlock = nxt
 
+    def visit_While(self,node):
+        
+        cnd = basicblock.BasicBlock()
+        nxt = basicblock.BasicBlock()
+        body = basicblock.BasicBlock()
+        
+        self.curBreakTargets.append(nxt)
+        self.curContinueTargets.append(cnd)
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(cnd))
+        self.curBasicBlock = cnd
+        
+        v = self.inFunctionDispatch(node.cond)
+        
+        if v.lval:
+            v = self.genDeref(v)
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Branch(v.reg,body,nxt))
+        
+        self.curBasicBlock = body
+        
+        self.inFunctionDispatch(node.stmt)
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(cnd))
+        #self.patchDanglingBlocks(body,cnd)
+        self.curBreakTargets.pop()
+        self.curContinueTargets.pop()
+        
+        self.curBasicBlock = nxt
+        
+    
+    def visit_Continue(self,node):
+        if self.curBasicBlock.unsafeEnding():
+            j = ir.Jmp(self.curContinueTargets[-1])
+            self.gotojumps.add(j)
+            self.curBasicBlock.append(j)
+        self.curBasicBlock = basicblock.BasicBlock()
+    
+    def visit_Break(self,node):
+        if self.curBasicBlock.unsafeEnding():
+            j = ir.Jmp(self.curBreakTargets[-1])
+            self.gotojumps.add(j)
+            self.curBasicBlock.append(j)
+        self.curBasicBlock = basicblock.BasicBlock()
+    
     def visit_For(self,node):
         
         lcmp = basicblock.BasicBlock()
         lcode = basicblock.BasicBlock()
         lend = basicblock.BasicBlock()
+        
+        self.curBreakTargets.append(lend)
+        self.curContinueTargets.append(lend)
         
         if node.init:
             self.inFunctionDispatch(node.init)
@@ -292,11 +357,15 @@ class IRGenerator(c_ast.NodeVisitor):
             self.curBasicBlock.append(ir.Jmp(lcmp))
         
         self.curBasicBlock = lend
+        
+        self.curBreakTargets.pop()
+        self.curContinueTargets.pop()
 
     def visit_Compound(self,compound):
         self.symTab.pushScope()
-        for block_item in compound.block_items:
-            self.inFunctionDispatch(block_item)
+        if compound.block_items != None:
+            for block_item in compound.block_items:
+                self.inFunctionDispatch(block_item)
         self.symTab.popScope()
     
     def visit_Constant(self,const):
@@ -324,20 +393,25 @@ class IRGenerator(c_ast.NodeVisitor):
         
         # a short circuit binop requires some branches
         if node.op in ['&&', '||']:
-            constZero = ir.I32()
-            result1 = ir.I32()
-            result2 = ir.I32()
-            result3 = ir.I32()
+            if lv.lval:
+                lv = self.genDeref(lv)
             
-            compareResult = ir.I32()
+            # lets just copy the input type for now,
+            # it should probably do a cast or something
+            constZero = lv.clone()
+            result1 = lv.clone()
+            result2 = lv.clone()
+            result3 = lv.clone()
             
-            self.curBasicBlock.append(ir.LoadConstant(constZero,ir.ConstantI32(0)))
-            self.curBasicBlock.append(ir.Binop('!=',compareResult,lv.reg,constZero))
+            compareResult = lv.clone()
+            
+            self.curBasicBlock.append(ir.LoadConstant(constZero.reg,ir.ConstantI32(0)))
+            self.curBasicBlock.append(ir.Binop('!=',compareResult.reg,lv.reg,constZero.reg))
             ifZero = basicblock.BasicBlock()
             ifNotZero = basicblock.BasicBlock()
             next = basicblock.BasicBlock()
             
-            self.curBasicBlock.append(ir.Branch(compareResult,ifNotZero,ifZero))
+            self.curBasicBlock.append(ir.Branch(compareResult.reg,ifNotZero,ifZero))
             
             if node.op == '&&':
                 shortCircuit = ifZero
@@ -350,28 +424,30 @@ class IRGenerator(c_ast.NodeVisitor):
             
             
             self.curBasicBlock = shortCircuit
-            self.curBasicBlock.append(ir.LoadConstant(result1,ir.ConstantI32(shortCircuitResult)))
-            self.curBasicBlock.append(ir.Jmp(next))
+            self.curBasicBlock.append(ir.LoadConstant(result1.reg,ir.ConstantI32(shortCircuitResult)))
+            if self.curBasicBlock.unsafeEnding():
+                self.curBasicBlock.append(ir.Jmp(next))
             
             self.curBasicBlock = other
             rv = self.inFunctionDispatch(node.right)
-            if lv.lval:
+            if rv.lval:
                 rv = self.genDeref(rv)
             
             #create some new virtual registers
-            constZero = ir.I32()
+            constZero = lv.clone()
             
-            self.curBasicBlock.append(ir.LoadConstant(constZero,ir.ConstantI32(0)))
-            self.curBasicBlock.append(ir.Binop('!=',result2,rv.reg,constZero))
-            self.curBasicBlock.append(ir.Jmp(next))
+            self.curBasicBlock.append(ir.LoadConstant(constZero.reg,ir.ConstantI32(0)))
+            self.curBasicBlock.append(ir.Binop('!=',result2.reg,rv.reg,constZero.reg))
+            if self.curBasicBlock.unsafeEnding():
+                self.curBasicBlock.append(ir.Jmp(next))
             
             self.curBasicBlock = next
-            self.curBasicBlock.append(ir.Phi(result3,result2,result1))
+            self.curBasicBlock.append(ir.Phi(result3.reg,result2.reg,result1.reg))
             
             return result3
             
         else: # a normal binop
-            rv = self.visit(node.right)
+            rv = self.inFunctionDispatch(node.right)
             
             if rv.lval:
                 rv = self.genDeref(rv)
