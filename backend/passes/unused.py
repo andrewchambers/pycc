@@ -28,6 +28,9 @@ class UnusedVars(functionpass.FunctionPass):
                     k = 0
                     while k < len(b):
                         i = b[k]
+                        if type(i) == ir.Call:
+                            k += 1
+                            continue
                         ass = set(i.assigned)
                         if len(ass) and ass.issubset(unused):
                             del b[k]

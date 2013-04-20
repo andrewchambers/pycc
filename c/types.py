@@ -45,6 +45,15 @@ class Int(Type):
     def clone(self):
         return Int()
 
+class Char(Type):
+    def getSize(self):
+        return 1
+        
+    def createVirtualReg(self):
+        return ir.I32()
+    
+    def clone(self):
+        return Char()
 
 class Struct(Type):
 
@@ -87,6 +96,7 @@ class TypeTable(object):
          
          self.types = {}
          self.registerType('int', Int())
+         self.registerType('char', Char())
     
     def lookupType(self,name):
         

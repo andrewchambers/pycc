@@ -19,7 +19,8 @@ class Symbol(object):
         return "%s Symbol: %s"%(self.__class__.__name__,self.name)
 
 class GlobalSym(Symbol):
-    pass
+    def __init__(self,name,t):
+        Symbol.__init__(self,name,t)
 
 class ParamSym(Symbol):
     def __init__(self,name,t):
@@ -434,8 +435,15 @@ class IRGenerator(c_ast.NodeVisitor):
             v = ValTracker(False,t,reg)
             self.curBasicBlock.append(op)
             return v
+        elif const.type == 'string':
+            t = self.typeTab.lookupType('char')
+            reg = ir.Pointer()
+            v = ValTracker(False,types.Pointer(t),reg)
+            op = ir.LoadGlobalAddr(reg,GlobalSym(self.module.addString(const.value + '\0'),v.type.clone()))
+            self.curBasicBlock.append(op)
+            return v
         else:
-            raise Exception('unimplemented constant load : %s' % node.coord)
+            raise Exception('unimplemented constant load : %s' % const.coord)
     
     def visit_Return(self,ret):
         val = self.inFunctionDispatch(ret.expr)

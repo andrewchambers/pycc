@@ -299,6 +299,29 @@ class X86LoadLocalAddr(machineinstruction.MI):
         return "mov %%ebp, %%%s; sub $%s, %%%s"%(r,offsetStr,r)
 
 
+class X86LoadGlobalAddr(machineinstruction.MI):
+    
+    @classmethod
+    def match(cls,dag,node):
+        
+        if type(node.instr) != ir.LoadGlobalAddr:
+            return None
+        
+        
+        def repl():
+            lla = X86LoadGlobalAddr()
+            lla.assigned = node.instr.assigned
+            lla.sym = node.instr.sym
+            node.instr = lla
+            
+        
+        return InstructionMatch(repl,1)
+
+    def asm(self):
+        r = self.assigned[0]
+        return "leal %s, %%%s"%(self.sym.name,r)
+
+
 class X86LoadParamAddr(machineinstruction.MI):
     
     
@@ -530,6 +553,7 @@ matchableInstructions = [
     X86LoadConstantI32,
     X86LoadParamAddr,
     X86LoadLocalAddr,
+    X86LoadGlobalAddr,
     #X86StoreLocalI32,
     X86StoreI32,
     X86EqI32,

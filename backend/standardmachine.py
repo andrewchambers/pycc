@@ -249,9 +249,18 @@ class StandardMachine(target.Target):
     def branchSelection(self,instr):
         raise Exception("unimlpemented")
     
-    def outputModule(self,m,ofile):
+    def translateModule(self,m,ofile):
+        
+        
+        for label,data in m.data:
+            ofile.write(".data\n")
+            ofile.write("%s:\n"%label)
+            for char in data:
+                ofile.write('.byte %d\n' % ord(char))
+            ofile.write('\n')
+        
         for f in m:
-            self.outputFunction(f,ofile)
+            self.translateFunction(f,ofile)
     
     def prologAndEpilog(self,func):
         
