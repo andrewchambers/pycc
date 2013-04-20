@@ -204,19 +204,21 @@ class IRGenerator(c_ast.NodeVisitor):
             if dim:
                 if type(dim) != c_ast.Constant and dim.type != 'int':
                         raise Exception("cannot handle a non integer sized constant array")
+            
             if type(decl.type.type) == c_ast.TypeDecl:
                 if type(decl.type.type.type) == c_ast.Struct:
                     return types.Array(self.typeTab.lookupType(decl.type.type.type.name),int(dim.value))
                 else:
-                    return types.Array(self.typeTab.lookupType(decl.type.type.names[0]),int(dim.value))
+                    return types.Array(self.typeTab.lookupType(decl.type.type.type.names[0]),int(dim.value))
             else:
                 return types.Array(self._recursivelyCreateType(decl.type),int(dim.value))
+                
         elif type(decl.type) == c_ast.PtrDecl:
             if type(decl.type.type) == c_ast.TypeDecl:
                 if type(decl.type.type.type) == c_ast.Struct:
                     return types.Pointer(self.typeTab.lookupType(decl.type.type.type.name))
                 else:
-                    return types.Pointer(self.typeTab.lookupType(decl.type.type.names[0]))
+                    return types.Pointer(self.typeTab.lookupType(decl.type.type.type.names[0]))
             else:
                 return types.Pointer(self._recursivelyCreateType(decl.type))
         else:
