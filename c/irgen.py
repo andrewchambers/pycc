@@ -72,12 +72,24 @@ class IRGenerator(c_ast.NodeVisitor):
             if type(ext) == c_ast.FuncDef:
                 self.visit_FuncDef(ext)
             elif type(ext) == c_ast.Decl:
-                self.symTab.addSymbol(GlobalSym(ext.name,None))
+                self.visit_globalDecl(ext)
             else:
                 raise Exception("unhandled ast node type  %s" % str(ext))
         
         self.symTab.popScope()
+    
+    def visit_globalDecl(self,decl):
         
+        if type(decl.type) == c_ast.Struct:
+            structAst = decl.type
+            structType = types.Struct(structAst.name)
+            for member in structAst.decls:
+                m = self._recursivelyCreateType(member)
+                structType.addMember(member.name,m)
+            self.typeTab.registerType(structType.name,structType)
+        else:
+            raise Exception("bug , unhandled decl type %s" % decl)
+    
     def visit_FuncDef(self,funcdef):
         
         self.symTab.addSymbol(GlobalSym(funcdef.decl.name,None))
@@ -147,6 +159,8 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_FuncCall(node)
         elif type(node) == c_ast.DeclList:
             return self.visit_DeclList(node)
+        elif type(node) == c_ast.StructRef:
+            return self.visit_StructRef(node)
         else:
             raise Exception("unhandled ast node type  %s" % str(node))
     
@@ -155,6 +169,7 @@ class IRGenerator(c_ast.NodeVisitor):
             for decl in decllist.decls:
                 self.inFunctionDispatch(decl)
     
+        
 
     
     def visit_inFunctionDecl(self,decl):
@@ -180,19 +195,28 @@ class IRGenerator(c_ast.NodeVisitor):
     def _recursivelyCreateType(self,decl):
         
         if type(decl.type) == c_ast.TypeDecl:
-            return self.typeTab.lookupType(decl.type.type.names[0])
+            if type(decl.type.type) == c_ast.Struct:
+                return self.typeTab.lookupType(decl.type.type.name)
+            else:
+                return self.typeTab.lookupType(decl.type.type.names[0])
         elif type(decl.type) == c_ast.ArrayDecl:
             dim = decl.type.dim
             if dim:
                 if type(dim) != c_ast.Constant and dim.type != 'int':
                         raise Exception("cannot handle a non integer sized constant array")
             if type(decl.type.type) == c_ast.TypeDecl:
-                return types.Array(self.typeTab.lookupType(decl.type.type.type.names[0]),int(dim.value))
+                if type(decl.type.type.type) == c_ast.Struct:
+                    return types.Array(self.typeTab.lookupType(decl.type.type.type.name),int(dim.value))
+                else:
+                    return types.Array(self.typeTab.lookupType(decl.type.type.names[0]),int(dim.value))
             else:
                 return types.Array(self._recursivelyCreateType(decl.type),int(dim.value))
         elif type(decl.type) == c_ast.PtrDecl:
             if type(decl.type.type) == c_ast.TypeDecl:
-                return types.Pointer(self.typeTab.lookupType(decl.type.type.type.names[0]))
+                if type(decl.type.type.type) == c_ast.Struct:
+                    return types.Pointer(self.typeTab.lookupType(decl.type.type.type.name))
+                else:
+                    return types.Pointer(self.typeTab.lookupType(decl.type.type.names[0]))
             else:
                 return types.Pointer(self._recursivelyCreateType(decl.type))
         else:
@@ -417,7 +441,49 @@ class IRGenerator(c_ast.NodeVisitor):
             val = self.genDeref(val)
         retop = ir.Ret(val.reg)
         self.curBasicBlock.append(retop)
-
+    
+    def visit_StructRef(self,node):
+        
+        field = node.field.name
+        
+        val = self.inFunctionDispatch(node.name)
+        
+        if node.type == '->':
+            if type(val.type) != types.Pointer and type(val.type.type) != types.Struct:
+                raise Exception("cannot perform -> on a non struct pointer")
+        elif node.type == '.':
+            if type(val.type) != types.Struct:
+                raise Exception("cannot perform . on a non struct")
+        else:
+            raise Exception("unreachable!")
+        
+        
+        if node.type == '->':
+            t,offset = val.type.type.getMemberInfo(field)
+        else: # .
+            t,offset = val.type.getMemberInfo(field)
+        
+        if not t:
+            raise Exception("member %s does not exist" % field)
+        
+        if node.type == '->':
+            
+            if val.lval:
+                val = self.genDeref(val)
+        
+        if offset == 0:
+            return ValTracker(True,t,val.reg)
+        
+        ret = ValTracker(True,t,ir.Pointer())
+        
+        constOffset = ir.I32()
+        
+        self.curBasicBlock.append(ir.LoadConstant(constOffset,ir.ConstantI32(offset)))
+        self.curBasicBlock.append(ir.Binop('+',ret.reg,val.reg,constOffset))
+        return ret
+        
+        
+        
     def visit_Binop(self,node):
         
         lv = self.inFunctionDispatch(node.left)

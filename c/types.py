@@ -46,16 +46,51 @@ class Int(Type):
         return Int()
 
 
+class Struct(Type):
+
+    def __init__(self,name):
+        self.name = name
+        self.members = []
+    
+    def getSize(self):
+        size = 0
+        for name,t in self.members:
+            size += t.getSize()
+        return size
+    
+    def getMemberInfo(self,name):
+        
+        offset = 0
+        
+        for memberName,t in self.members:
+            if memberName == name:
+                return (t,offset)
+            offset += t.getSize()
+        
+        return (None,None)
+    
+    def addMember(self,name,t):
+        self.members.append([name,t])
+        
+    def clone(self):
+        
+        ret = Struct(self.name)
+        for name,t in self.members:
+            ret.addMember(name,t.clone())
+        
+        return ret
+        
+
 class TypeTable(object):
     
     def __init__(self):
          
          self.types = {}
-         self.registerType('int', Int)
+         self.registerType('int', Int())
     
     def lookupType(self,name):
         
-        ret = self.types[name]()
+        ret = self.types[name].clone()
         return ret
         
     def registerType(self,name,t):
