@@ -5,7 +5,7 @@ for TEST in `ls ./tests/*.c`
 do
     #echo $TEST
     rm -f ./a.out
-    gcc -std=c99 -m32 $TEST
+    gcc -std=c99 -m32 $TEST > /dev/null 2>&1
     
     timeout 3s ./a.out > /dev/null 2>&1
     
