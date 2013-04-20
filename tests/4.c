@@ -2,7 +2,7 @@
 
 
 
-int main(int argc) {
+int main() {
     
     
     if(1) {
@@ -14,9 +14,11 @@ int main(int argc) {
         
     } else if (2) {
         15;
+        return 1;
     } else {
         20;
+        return 1;
     }
     
-    return 500;
+    return 0;
 }

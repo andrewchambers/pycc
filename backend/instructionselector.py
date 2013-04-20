@@ -18,7 +18,7 @@ class InstructionSelector(object):
     
     def select(self,target,dag):
         
-        instr = target.getInstructions()
+        instr = target.getMatchableInstructions()
         unmatchable = set()
         while True:
             print("topological sort")

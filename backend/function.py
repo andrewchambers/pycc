@@ -22,26 +22,24 @@ class Function(object):
         return ss
     
     def addArgumentSlot(self,ss):
-        if ss not in self.argumentslots:
-            self.argumentslots.append(ss)
+        if len(self.argumentslots) == 0:
+            ss.offset = 0
+        else:
+            ss.offset = self.argumentslots[-1].offset + self.argumentslots[-1].size
+        self.argumentslots.append(ss)
     
     def addStackSlot(self,ss):
         #XXX probably pretty inefficient
         if ss not in self.stackslots:
             self.stackslots.append(ss)
     
-    def resolveArguments(self):
-        offset = 0
-        for slot in self.argumentslots:
-            slot.offset = offset
-            offset += slot.size
-        self.paramsSize = offset
     
     def resolveStack(self):
+        #XXX depends if stack grows up or down...
         offset = 0
         for slot in self.stackslots:
-            slot.offset = offset
             offset += slot.size
+            slot.offset = offset
         self.localsSize = offset
     
     def setEntryBlock(self,entry):

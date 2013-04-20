@@ -22,7 +22,9 @@ class GlobalSym(Symbol):
     pass
 
 class ParamSym(Symbol):
-    pass
+    def __init__(self,name,t):
+        Symbol.__init__(self,name,t)
+        self.slot = function.StackSlot(t.getSize())
 
 class LocalSym(Symbol):
     def __init__(self,name,t):
@@ -84,7 +86,20 @@ class IRGenerator(c_ast.NodeVisitor):
         self.curBasicBlock = basicblock.BasicBlock()
         self.curFunction.setEntryBlock(self.curBasicBlock)
         self.symTab.pushScope()
+        
+        if funcdef.decl.type.args:
+            for param in funcdef.decl.type.args.params:
+                t = self._recursivelyCreateType(param)
+                if type(t) not in [types.Pointer,types.Int]:
+                    raise Exception("cant handle type %s as a param yet" % t)
+                
+                sym = ParamSym(param.name,t)
+                self.symTab.addSymbol(sym)
+                self.curFunction.addArgumentSlot(sym.slot)
+        
+        self.symTab.pushScope()
         self.inFunctionDispatch(funcdef.body)
+        self.symTab.popScope()
         self.symTab.popScope()
         
         if self.curBasicBlock.unsafeEnding():
@@ -128,53 +143,49 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_Break(node)
         elif type(node) == c_ast.Continue:
             return self.visit_Continue(node)
+        elif type(node) == c_ast.FuncCall:
+            return self.visit_FuncCall(node)
+        elif type(node) == c_ast.DeclList:
+            return self.visit_DeclList(node)
         else:
             raise Exception("unhandled ast node type  %s" % str(node))
     
-    def visit_inFunctionDecl(self,decl,depth=0):
-        
-        if type(decl.type) == c_ast.TypeDecl:
-            
-            t = self.typeTab.lookupType(decl.type.type.names[0])
-            sym = LocalSym(decl.name,t)
-            self.symTab.addSymbol(sym)
-            self.curFunction.addStackSlot(sym.slot)
-            if decl.init:
-                initializer = self.inFunctionDispatch(decl.init)
-                v = ir.Pointer()
-                op = ir.LoadLocalAddr(v,sym)
-                self.curBasicBlock.append(op)
+    def visit_DeclList(self,decllist):
+        if decllist.decls:
+            for decl in decllist.decls:
+                self.inFunctionDispatch(decl)
+    
 
-                if initializer.lval:
-                    initializer = self.genDeref(initializer)
-                op = ir.Store(v,initializer.reg)
-                self.curBasicBlock.append(op)
-            
-        elif type(decl.type) == c_ast.ArrayDecl:
-            
-            sym = LocalSym(decl.name,self._recursivelyCreateType(decl))
-            self.symTab.addSymbol(sym)
-            self.curFunction.addStackSlot(sym.slot)
-            if decl.init != None:
+    
+    def visit_inFunctionDecl(self,decl):
+        t = self._recursivelyCreateType(decl)
+        sym = LocalSym(decl.name,t)
+        self.symTab.addSymbol(sym)
+        self.curFunction.addStackSlot(sym.slot)
+        if decl.init:
+            if type(decl.type) == c_ast.ArrayDecl:
                 raise Exception("cannot currently handle Array initializers")
-        
-        elif type(decl.type) == c_ast.PtrDecl:
-            
-            sym = LocalSym(decl.name,self._recursivelyCreateType(decl))
-            self.symTab.addSymbol(sym)
-            self.curFunction.addStackSlot(sym.slot)
-            if decl.init != None:
+            elif type(decl.type) == c_ast.PtrDecl:
                 raise Exception("cannot currently handle Pointer initializers")
-            
-        else:
-            raise Exception("unhandled decl type")
+            initializer = self.inFunctionDispatch(decl.init)
+            v = ir.Pointer()
+            op = ir.LoadLocalAddr(v,sym)
+            self.curBasicBlock.append(op)
+
+            if initializer.lval:
+                initializer = self.genDeref(initializer)
+            op = ir.Store(v,initializer.reg)
+            self.curBasicBlock.append(op)
     
     def _recursivelyCreateType(self,decl):
         
-        if type(decl.type) == c_ast.ArrayDecl:
+        if type(decl.type) == c_ast.TypeDecl:
+            return self.typeTab.lookupType(decl.type.type.names[0])
+        elif type(decl.type) == c_ast.ArrayDecl:
             dim = decl.type.dim
-            if type(dim) != c_ast.Constant and dim.type != 'int':
-                    raise Exception("cannot handle a non integer sized constant array")
+            if dim:
+                if type(dim) != c_ast.Constant and dim.type != 'int':
+                        raise Exception("cannot handle a non integer sized constant array")
             if type(decl.type.type) == c_ast.TypeDecl:
                 return types.Array(self.typeTab.lookupType(decl.type.type.type.names[0]),int(dim.value))
             else:
@@ -247,7 +258,27 @@ class IRGenerator(c_ast.NodeVisitor):
         
         self.inFunctionDispatch(node.stmt)
         
-
+    def visit_FuncCall(self,node):
+        
+        finalArgs = []
+        if node.args:
+            for arg in node.args.exprs:
+                finalArg = self.inFunctionDispatch(arg)
+                if finalArg.lval:
+                    finalArg = finalArg.deref()
+                finalArgs.append(finalArg)
+            
+            #XXX assume rettype is int for now
+        retType = self.typeTab.lookupType('int')
+        retV = ValTracker(False,retType,None)
+        retV.createVirtualReg()
+        #XXX this has to be a symtab lookup
+        callinst = ir.Call(node.name.name)
+        callinst.read = list(map(lambda v : v.reg,finalArgs))
+        callinst.assigned = [retV.reg]
+        self.curBasicBlock.append(callinst)
+        return retV
+    
     def visit_If(self,node):
         
         v = self.inFunctionDispatch(node.cond)
@@ -551,6 +582,13 @@ class IRGenerator(c_ast.NodeVisitor):
                 lv = self.genDeref(lv)
             lv.lval = True
             return lv
+        elif node.op == '!':
+            if lv.lval:
+                lv = self.genDeref(lv)
+            
+            ret = lv.clone()
+            self.curBasicBlock.append(ir.Unop('!',ret.reg,lv.reg))
+            return ret
         else:
             raise Exception("bug - unhandle unary op %s" % node.op)
 
@@ -583,445 +621,4 @@ class IRGenerator(c_ast.NodeVisitor):
         self.curBasicBlock.append(ir.Store(lv.reg,result.reg))
         return result
 
-#class Symbol(object):
-#    
-#    def __init__(self,name,t):
-#        self.name = name
-#        self.type = t
-#    def __repr__(self):
-#        return "%s Symbol: %s"%(self.__class__.__name__,self.name)
 
-#class Global(Symbol):
-#    pass
-
-#class Param(Symbol):
-#    pass
-
-#class Local(Symbol):
-#    def __init__(self,name,t):
-#        Symbol.__init__(self,name,t)
-#        self.slot = function.StackSlot(t.getSize())
-
-
-#GLOBAL = 0
-#PARAM = 1
-#LOCAL = 2
-
-#declclasses = [Global,Param,Local]
-
-
-#class IRGenerator(c_ast.NodeVisitor):
-#    
-#    def __init__(self):
-#        self.module = None
-#        self.curFunction = None
-#        self.curBasicBlock = None
-#        self.labelTable = {}
-#        self.gotojumps = set()
-#        self._symbols = {}
-#        self._scopes = []
-#        self._scopeState = GLOBAL
-#        self._typeTable = types.TypeTable()
-#    
-#    def _pushScope(self):
-#        self._scopes.append({})
-#        
-#    def _popScope(self):
-#        self._scopes.pop()
-#    
-#    def _addSymbol(self,sym):
-#        self._scopes[-1][sym.name] = sym
-#    
-#    def _lookupSymbol(self,name):
-#        for scope in reversed(self._scopes):
-#            if name in scope:
-#                return scope[name]
-#        raise Exception("undefined variable %s"%name)
-#    
-#    
-#    def visit_ParamList(self,node):
-#        self._scopeState = PARAM
-#        self.generic_visit(node)
-#        
-#    def visit_Compound(self,compound):
-#        self._scopeState = LOCAL
-#        self._pushScope()
-#        self.generic_visit(compound)
-#        self._popScope()
-#    
-#    def patchDanglingBlocks(self,start,next):
-
-#        def generator():
-#            visited = set()
-#            stack = [start]
-#            while (len(stack)):
-#                curblock = stack.pop()
-#                if curblock in visited:
-#                    continue
-#                if curblock is next:
-#                    continue
-#                visited.add(curblock)
-#                yield curblock
-#                if len(curblock):
-#                    if curblock[-1] not in self.gotojumps:
-#                        for b in curblock[-1].getSuccessors():
-#                            stack.append(b)
-#        
-#        for b in generator():
-#            if len(b) == 0:
-#                b.append(ir.Jmp(next))
-#                continue
-#            
-#            if b[-1].isTerminator():
-#                continue
-#            
-#            if len(b[-1].getSuccessors()) == 0:
-#                b.append(ir.Jmp(next))
-#                continue
-
-#    def visit_FileAST(self,node):
-#        self.module = module.Module()
-#        self._scopeState = GLOBAL
-#        self._pushScope()
-#        self.generic_visit(node)
-#        self._popScope()
-#        self.generic_visit(node)
-#        assert(len(self._scopes) == 0)
-#        
-#    def visit_FuncDef(self,node):
-#        self.labelTable = {}
-#        self.curFunction = function.Function(node.decl.name)
-#        self.module.addFunction(self.curFunction)
-#        self.curBasicBlock = basicblock.BasicBlock()
-#        self.curFunction.setEntryBlock(self.curBasicBlock)
-#        self._pushScope()
-#        self.generic_visit(node)
-#        self._popScope()
-#        self._scopeState = GLOBAL
-#    
-#    def visit_FuncCall(self,node):
-#        raise Exception("unimplemented")
-#        op = ir.Call()
-#        
-#        for arg in node.args.exprs:
-#            argvar = self.visit(arg)
-#            op.read.append(argvar)
-#        
-#        ret = ir.I32()
-#        op.assigned.append(ret)
-#        self.curBasicBlock.append(op)
-#        return ret
-#        
-#    
-#    
-#    def visit_Assignment(self,node):
-#        
-#        lv = self.visit(node.lvalue)
-#        rv = self.visit(node.rvalue)
-#        
-#        if rv.lval:
-#            rv = self.genDeref(rv)
-#        
-#        if not lv.lval:
-#            raise Exception("attemping to assign to a non lvalue!")
-#        
-#        if node.op in ['+=','-=' ,'/=','^=','|=','&=','*=','%=']:
-#            val = ir.I32()
-#            result = ir.I32()
-#            self.curBasicBlock.append(ir.Deref(val,lv))
-#            self.curBasicBlock.append(ir.Binop(node.op[0],result,val,rv))
-#        else:
-#            if node.op != '=' :
-#                raise Exception("Bug - unknown assignment op %s" % node.op)
-#            result = rv
-#                
-#        self.curBasicBlock.append(ir.Store(lv,result))
-#        return result
-
-#    def visit_UnaryOp(self,node):
-#        
-#        lv = self.visit(node.expr)
-#        
-#        if node.op in ['++','--']:
-#            if not lv.lval:
-#                raise Exception("cant perform pre(%s) on a non lval" % node.op)
-#            val = ir.I32()
-#            constval = ir.I32()
-#            result = ir.I32()
-#            self.curBasicBlock.append(ir.Deref(val,lv))
-#            self.curBasicBlock.append(ir.LoadConstant(constval,ir.ConstantI32(1)))
-#            self.curBasicBlock.append(ir.Binop(node.op[0],result,val,constval))
-#            self.curBasicBlock.append(ir.Store(lv,result))
-#            return result
-#        elif node.op in ['p++','p--']:
-#            
-#            if not lv.lval:
-#                raise Exception("cant perform post(%s) on a non lval" % node.op[1:])
-#            val = ir.I32()
-#            constval = ir.I32()
-#            result = ir.I32()
-#            self.curBasicBlock.append(ir.Deref(val,lv))
-#            self.curBasicBlock.append(ir.LoadConstant(constval,ir.ConstantI32(1)))
-#            self.curBasicBlock.append(ir.Binop(node.op[1],result,val,constval))
-#            self.curBasicBlock.append(ir.Store(lv,result))
-#            return val
-#        
-#        elif node.op == '&':
-#            
-#            if not lv.lval:
-#                raise Exception("cannot get the address of a non lval")
-#            
-#            lv.lval = False
-#            return lv
-#        
-#        elif node.op == '*':
-#            lv.lval = True
-#            return lv
-#        else:
-#            raise Exception("bug - unhandle unary op %s" % node.op)
-#                
-#        
-
-#    def visit_BinaryOp(self,node):
-#        
-#        lv = self.visit(node.left)
-#        if lv.lval:
-#            lv = self.genDeref(lv)
-#        
-#        # a short circuit binop requires some branches
-#        if node.op in ['&&', '||']:
-#            constZero = ir.I32()
-#            result1 = ir.I32()
-#            result2 = ir.I32()
-#            result3 = ir.I32()
-#            
-#            compareResult = ir.I32()
-#            
-#            self.curBasicBlock.append(ir.LoadConstant(constZero,ir.ConstantI32(0)))
-#            self.curBasicBlock.append(ir.Binop('!=',compareResult,lv,constZero))
-#            ifZero = basicblock.BasicBlock()
-#            ifNotZero = basicblock.BasicBlock()
-#            next = basicblock.BasicBlock()
-#            
-#            self.curBasicBlock.append(ir.Branch(compareResult,ifNotZero,ifZero))
-#            
-#            if node.op == '&&':
-#                shortCircuit = ifZero
-#                other = ifNotZero
-#                shortCircuitResult = 0
-#            else:
-#                shortCircuit = ifNotZero
-#                other = ifZero
-#                shortCircuitResult = 1
-#            
-#            
-#            self.curBasicBlock = shortCircuit
-#            self.curBasicBlock.append(ir.LoadConstant(result1,ir.ConstantI32(shortCircuitResult)))
-#            self.curBasicBlock.append(ir.Jmp(next))
-#            
-#            self.curBasicBlock = other
-#            rv = self.visit(node.right)
-#            if lv.lval:
-#                rv = self.genDeref(rv)
-#            
-#            #create some new virtual registers
-#            constZero = ir.I32()
-#            
-#            self.curBasicBlock.append(ir.LoadConstant(constZero,ir.ConstantI32(0)))
-#            self.curBasicBlock.append(ir.Binop('!=',result2,rv,constZero))
-#            self.curBasicBlock.append(ir.Jmp(next))
-#            
-#            self.curBasicBlock = next
-#            self.curBasicBlock.append(ir.Phi(result3,result2,result1))
-#            
-#            return result3
-#            
-#        else: # a normal binop
-#            rv = self.visit(node.right)
-#            
-#            if rv.lval:
-#                rv = self.genDeref(rv)
-#            
-#            if lv.lval:
-#                lv = self.genDeref(lv)
-#            
-#            result = ir.I32()
-#            self.curBasicBlock.append(ir.Binop(node.op,result,lv,rv))
-#            return result
-#    
-#    
-#    def visit_Decl(self,node):
-#    
-#        declClass = declclasses[self._scopeState]
-#        #raise Exception(str(node.type) + str(dir(node)) + str(dir(node.type)))
-#        t = self._typeTable.lookupType(node.type.type)
-#        t = 'int'
-#        sym = declClass(node.name,t)
-#        self._addSymbol(sym)
-#        
-#    
-#        #if node.init:
-#        #    sym = self.symtab.lookupID(node)
-#        #    v = ir.I32()
-#        #    v.pcount += 1
-#        #    v.lval = True
-#        #    if type(sym) == symtab.Global:
-#        #        op = ir.LoadGlobalAddr(v,sym)
-#        #    elif type(sym) == symtab.Param:
-#        #        op = ir.LoadParamAddr(v,sym)
-#        #    elif type(sym) == symtab.Local:
-#        #        self.curFunction.addStackSlot(sym.slot)
-#        #        op = ir.LoadLocalAddr(v,sym)
-#        #    else:
-#        #        raise Exception("unknown symbol type")
-#        #    self.curBasicBlock.append(op)
-#        #    initializer = self.visit(node.init)
-#        #    if initializer.lval:
-#        #        initializer = self.genDeref(initializer)
-#        #    
-#        #    op = ir.Store(v,initializer)
-#        #    self.curBasicBlock.append(op)
-#        
-#        self.generic_visit(node)
-#            
-#    def visit_Constant(self,node):
-#        
-#        if node.type == 'int':
-#            reg = ir.I32()
-#            
-#            const = ir.ConstantI32(node.value)
-#            op = ir.LoadConstant(reg,const)
-#            self.curBasicBlock.append(op)
-#            return reg
-#        else:
-#            raise Exception('unimplemented constant load : %s' % node.coord)
-#    
-#    def visit_Goto(self,node):
-#        #XXX bug if redefined label
-#        if node.name in self.labelTable:
-#            nextblock = self.labelTable[node.name]
-#        else:
-#            nextblock = basicblock.BasicBlock()
-#            self.labelTable[node.name] = nextblock
-#        j = ir.Jmp(nextblock)
-#        self.gotojumps.add(j)
-#        self.curBasicBlock.append(j)
-#        
-#    def visit_Label(self,node):
-#        
-#        prevblock = self.curBasicBlock
-#        
-#        if node.name in self.labelTable:
-#            nextblock = self.labelTable[node.name]
-#        else:
-#            nextblock = basicblock.BasicBlock()
-#            self.labelTable[node.name] = nextblock
-#        
-#        
-#        if prevblock.unsafeEnding():
-#            prevblock.append(ir.Jmp(nextblock))
-#            
-#            
-#        self.curBasicBlock = nextblock
-#        
-#        self.generic_visit(node)
-#        
-#        
-#    def visit_If(self,node):
-#        
-#        v = self.visit(node.cond)
-#        if v.lval:
-#            v = self.genDeref(v)
-#        
-#        trueblock = basicblock.BasicBlock()
-#        falseblock = basicblock.BasicBlock()
-#        nxt = basicblock.BasicBlock()
-#        br = ir.Branch(v,trueblock,falseblock)
-#        
-#        self.curBasicBlock.append(br)
-#        self.curBasicBlock = trueblock
-#        self.visit(node.iftrue)
-#        
-#        self.patchDanglingBlocks(trueblock,nxt)
-#        
-#        if node.iffalse:
-#            self.curBasicBlock = falseblock
-#            self.visit(node.iffalse)
-#        
-#        self.patchDanglingBlocks(falseblock,nxt)
-#        
-#        self.curBasicBlock = nxt
-#        
-#    def visit_For(self,node):
-#        
-#        lcmp = basicblock.BasicBlock()
-#        lcode = basicblock.BasicBlock()
-#        lend = basicblock.BasicBlock()
-#        
-#        if node.init:
-#            self.visit(node.init)
-#            
-#        if self.curBasicBlock.unsafeEnding():
-#            self.curBasicBlock.append(ir.Jmp(lcmp))
-#        
-#        self.curBasicBlock = lcmp
-#        
-#        if node.cond:
-#            v = self.visit(node.cond)
-#            
-#            if v.lval:
-#                v = self.genDeref(v)
-#            
-#            br = ir.Branch(v,lcode,lend)
-#            self.curBasicBlock.append(br)
-#        else:
-#            if self.curBasicBlock.unsafeEnding():
-#                self.curBasicBlock.append(ir.Jmp(lcode))
-#        
-#        self.curBasicBlock = lcode
-#        if node.stmt:
-#            self.visit(node.stmt)
-#        if node.next:
-#            self.visit(node.next)
-#        if self.curBasicBlock.unsafeEnding():
-#            self.curBasicBlock.append(ir.Jmp(lcmp))
-#        
-#        self.curBasicBlock = lend
-#        
-#        
-#    def visit_ID(self,node):
-#        
-#        sym = self._lookupSymbol(node.name)
-#        v = ir.I32()
-#        v.pcount += 1
-#        v.lval = True
-#        if type(sym) == symtab.Global:
-#            op = ir.LoadGlobalAddr(v,sym)
-#        elif type(sym) == symtab.Param:
-#            op = ir.LoadParamAddr(v,sym)
-#        elif type(sym) == symtab.Local:
-#            self.curFunction.addStackSlot(sym.slot)
-#            op = ir.LoadLocalAddr(v,sym)
-#        else:
-#            raise Exception("unknown symbol type")
-#        self.curBasicBlock.append(op)
-#        return v
-#        
-#        
-#    def visit_Return(self,ret):
-#        val = self.visit(ret.expr)
-#        if val.lval:
-#            val = self.genDeref(val)
-#        retop = ir.Ret(val)
-#        self.curBasicBlock.append(retop)
-#    
-#    def genDeref(self,val):
-#        newV = ir.I32()
-#        assert(val.pcount > 0)
-#        newV.pcount = val.pcount-1
-#        self.curBasicBlock.append(ir.Deref(newV,val))
-#        return newV
-#        
-#    def getModule(self):
-#        return self.module
-#    

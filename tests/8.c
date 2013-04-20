@@ -1,9 +1,11 @@
+//EXPECTED FAIL
 
-
-int foo();
+int foo(int a) {
+    return a - 5;
+}
 
 int 
-main (int argc, char *argv[])
+main ()
 {
-    return foo(argc,3);
+    return foo(5);
 }

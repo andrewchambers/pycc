@@ -1,9 +1,9 @@
 
 int 
-main (int argc, char *argv[])
+main ()
 {
-    int i = 0;
+    int i = 1;
     
     
-    return 2 + i + 2;
+    return 2 + i + 2 - 5;
 }

@@ -1,6 +1,6 @@
 
 int 
-main (int argc, char *argv[])
+main ()
 {
 
     int test = 0;

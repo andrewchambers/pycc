@@ -84,6 +84,9 @@ class Instruction(object):
     
     def isMove(self):
         return False
+    
+    def isCall(self):
+        return False
 
 class Binop(Instruction):
     def __init__(self,op,res,l,r):
@@ -100,10 +103,26 @@ class Binop(Instruction):
         return "%s = %s %s %s"%(self.assigned[0],self.read[0],self.op,
                                     self.read[1])
 
-class Call(Instruction):
+class Unop(Instruction):
+    def __init__(self,op,res,arg):
+        self.op = op
+        self.assigned = [res]
+        self.read = [arg]
+    
     def __repr__(self):
-        return "call"
+        return "%s = %s %s"%(self.assigned[0],self.op,self.read[0])
 
+class Call(Instruction):
+    def __init__(self,label):
+        Instruction.__init__(self)
+        self.label = label
+        
+    def __repr__(self):
+        return "%s = call %s %s"%(self.assigned[0],self.label,self.read)
+
+    def isCall(self):
+        return True
+        
 class LoadGlobalAddr(Instruction):
     def __init__(self,res,sym):
         Instruction.__init__(self)

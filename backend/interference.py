@@ -46,6 +46,7 @@ class InterferenceGraph(object):
                     changed = True
                 
         liveness = []
+        instrToLiveness = {}
         
         for block in blockstates:
             #print("XXXXX %s: gen %s kill %s livein %s liveout %s"% (block,blockstates[block][0],blockstates[block][1],blockstates[block][2],blockstates[block][3]))
@@ -60,12 +61,15 @@ class InterferenceGraph(object):
                         live.remove(v)
                 
                 liveness.append(live.copy().union(set(instr.assigned)))
+                instrToLiveness[instr] = liveness[-1]
                 
                 for v in instr.read:
                     live.add(v)
                 
-                print("XXXX %s" % instr)
-                print("\t%s" % liveness[-1])
+                #print("XXXX %s" % instr)
+                #print("\t%s" % liveness[-1])
+        
+        self.instrToLiveness = instrToLiveness
 
                 
         self.nodes = function.variables
@@ -85,6 +89,7 @@ class InterferenceGraph(object):
                     moveedges.append(set([i.assigned[0],i.read[0]]))
         
         self.moveedges = moveedges
+        
     
     def getInterferes(self,n):
         ret = set()

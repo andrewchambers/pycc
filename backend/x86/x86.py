@@ -38,7 +38,47 @@ class X86BasicBinopI32(machineinstruction.MI):
         
         return InstructionMatch(repl,1)
 
+class X86BasicUnopI32(machineinstruction.MI):
+    
+    @classmethod
+    def match(cls,dag,node):
+        
+        if type(node.instr) != ir.Unop or node.instr.op != cls.op:
+            return None
+        
+        if len(node.ins) != 1:
+            return None
+        
+        if type(node.instr.read[0]) not in (ir.I32,ir.Pointer):
+            return None
+        
+        if type(node.instr.assigned[0]) not in (ir.I32,ir.Pointer):
+            return None
+        
+        
+        def repl():
+            m = cls()
+            m.assigned = node.instr.assigned
+            m.read = node.instr.read
+            node.instr = m
+        
+        return InstructionMatch(repl,1)
 
+class X86NotI32(X86BasicUnopI32):
+    op = '!'
+    
+    def asm(self):
+        if self.read[0] == self.assigned[0]:
+            ret =  "subl $1,%{0}; adcl %{0},%{0}; andl $1,%{0}"
+            return ret.format(self.assigned[0])
+        else:
+            o = self.assigned[0]
+            ret = "movl %{1},%{0}; " + \
+                  "addl $-1,%{1}; " + \
+                  "sbbl %{1},%{0};"
+            return ret.format(self.assigned[0],self.read[0])
+             
+        
 
 class X86IMultI32(X86BasicBinopI32):
     op = '*'
@@ -255,7 +295,7 @@ class X86LoadLocalAddr(machineinstruction.MI):
         if offset == None:
             offsetStr = "XXX"
         else:
-            offsetStr = str( ( 4 + offset) ) 
+            offsetStr = str( (offset) ) 
         return "mov %%ebp, %%%s; sub $%s, %%%s"%(r,offsetStr,r)
 
 
@@ -288,52 +328,6 @@ class X86LoadParamAddr(machineinstruction.MI):
         return "mov %%ebp, %%%s; add $%s, %%%s"%(r,offsetStr,r)
 
 
-class X86LoadLocalI32(machineinstruction.MI):
-    
-    
-    @classmethod
-    def match(cls,dag,node):
-        
-        
-        if type(node.instr) != ir.Deref:
-            return None
-        
-        loadAddr = node.ins[0].edge.tail.parent
-        
-        
-        if type(loadAddr.instr) != ir.LoadLocalAddr:
-            return None
-        
-        
-        def repl():
-            
-            newnode = SDNode()
-            lla = X86LoadLocalI32()
-            lla.assigned = node.instr.assigned
-            lla.sym = loadAddr.instr.sym
-            newnode.instr = lla
-            
-            oldedges = list(node.outs[0].edges)
-            for edge in oldedges:
-                edge.tail = newnode.outs[0]
-            
-            
-            
-        
-        return InstructionMatch(repl,2)
-
-    def asm(self):
-        
-        r = self.assigned[0]
-        
-        offset = self.sym.slot.offset
-        if offset == None:
-            offsetStr = "XXX"
-        else:
-            offsetStr = str(-1 * (4 + offset))
-        
-        
-        return "mov %s(%%ebp), %%%s "%(offsetStr,r)
 
 
 class X86StoreLocalI32(machineinstruction.MI):
@@ -430,18 +424,9 @@ class X86StoreI32(machineinstruction.MI):
 class X86PushI32(machineinstruction.MI):
     
     def asm(self):
-        return "push %s"%(self.read[0])
-
-class X86StackLoadI32(machineinstruction.MI):
-    
-    def asm(self):
-        return "mov %s, [ebp + XXX]"%(self.assigned[0])
+        return "push %%%s"%(self.read[0])
 
 
-class X86StackSaveI32(machineinstruction.MI):
-    
-    def asm(self):
-        return "mov [ebp + XXX], %s "%(self.read[0])
         
 class X86Jmp(machineinstruction.MI):
     
@@ -458,7 +443,7 @@ class X86Branch(machineinstruction.MI):
         elif self.successors[0] == None and self.successors[1] != None:
             return "test %%%s,%%%s; jz .%s"%(self.read[0],self.read[0],self.successors[1])
         else:
-            return "test %%%s,%%%s; jnz .%s; jmp %s"%(self.read[0],self.read[0],self.successors[0],successors[1])
+            return "test %%%s,%%%s; jnz .%s; jmp .%s"%(self.read[0],self.read[0],self.successors[0],self.successors[1])
 
 class X86Nop(machineinstruction.MI):
     def asm(self):
@@ -467,6 +452,17 @@ class X86Nop(machineinstruction.MI):
 class X86Ret(machineinstruction.MI):
     def asm(self):
         return "ret"
+
+class X86Call(machineinstruction.MI):
+    def __init__(self,label):
+        machineinstruction.MI.__init__(self)
+        self.label = label
+    
+    def isCall(self):
+        return True
+    
+    def asm(self):
+        return "call %s" % self.label
 
 class X86Enter(machineinstruction.MI):
     def __init__(self,stackSize):
@@ -490,8 +486,35 @@ class X86Leave(machineinstruction.MI):
         ret += "popl %ebp;" 
         return ret
 
+class X86StackFree(machineinstruction.MI):
+    def __init__(self, amount):
+        machineinstruction.MI.__init__(self)
+        self.amount = amount
+    def asm(self):
+        return "add $%d,%%esp"%self.amount
 
-instructions = [
+class X86StackLoadI32(machineinstruction.MI):
+    def __init__(self,reg,slot):
+        machineinstruction.MI.__init__(self)
+        self.slot = slot
+        self.assigned = [reg]
+
+    def asm(self):
+        return "mov %d(%%ebp), %%%s "%(self.slot.offset,self.assigned[0])
+        
+
+
+class X86StackSaveI32(machineinstruction.MI):
+    def __init__(self,reg, slot):
+        machineinstruction.MI.__init__(self)
+        self.slot = slot
+        self.read = [reg]
+    
+    def asm(self):
+        return "mov %%%s,%d(%%ebp)"%(self.read[0],self.slot.offset)
+
+
+matchableInstructions = [
     X86AddI32,
     X86SubI32,
     X86SHLI32,
@@ -513,6 +536,7 @@ instructions = [
     X86NeI32,
     X86GtI32,
     X86LtI32,
+    X86NotI32,
 #   X86PushI32,
 ]
 
@@ -524,6 +548,7 @@ registers = [
     standardmachine.Register('edx',[ir.I32,ir.Pointer]),
     standardmachine.Register('edi',[ir.I32,ir.Pointer]),
     standardmachine.Register('esi',[ir.I32,ir.Pointer]),
+    
 ]
 
 def getRegisterByName(n):
@@ -571,7 +596,6 @@ class X86(standardmachine.StandardMachine):
         self.muldivFixups(block)
         self.shiftFixups(block)
         self.retFixups(block)
-        #self.callFixups(block)
     
     def muldivFixups(self,block):
         idx = 0
@@ -644,8 +668,42 @@ class X86(standardmachine.StandardMachine):
                     print("unsupported type for ret")
             idx += 1
         
-    def callFixups(self,block):
-        pass
+    
+    def pushArgument(self,arg):
+        if type(arg) in [ir.Pointer,ir.I32]:
+            pinstr = X86PushI32()
+            pinstr.read = [arg]
+            return [pinstr]
+        else:
+            raise Exception("x86 cannot handle an argument of this type %s" % arg)
+    
+    def getReturnReg(self,arg):
+        if type(arg) in [ir.Pointer,ir.I32]:
+            return getRegisterByName('eax')
+        else:
+            raise Exception("x86 cannot handle a return of this type %s" % arg)
+    
+    
+    def getCallInstruction(self,instr):
+        
+        if type(instr) == ir.Call:
+            return X86Call(instr.label)
+        else:
+            print(instr)
+            raise Exception("XXXX")
+    
+    def getStackClearingInstruction(self,amount):
+        return X86StackFree(amount)
+    
+    def getCopyFromPhysicalInstruction(self,virt,reg):
+        
+        if type(virt) in [ir.Pointer,ir.I32]:
+            ret = X86MovI32()
+            ret.read = [reg]
+            ret.assigned = [virt]
+            return ret
+        else:
+            raise Exception("XXXXXXXXX")
     
     def getEpilog(self,stackSize):
         return [X86Leave(stackSize)]
@@ -653,11 +711,24 @@ class X86(standardmachine.StandardMachine):
     def getProlog(self,stackSize):
         return [X86Enter(stackSize)]
     
-    def getInstructions(self):
-        return instructions
+    def getMatchableInstructions(self):
+        return matchableInstructions
         
     def getRegisters(self):
         return registers
+    
+    def getSaveRegisterInstruction(self,reg,ss):
+        if type(reg) in [ir.Pointer,ir.I32]:
+            return X86StackSaveI32(reg,ss)
+        else:
+            raise Exception("unsupported save register type")
+        
+    def getLoadRegisterInstruction(self,reg,ss):
+        if type(reg) in [ir.Pointer,ir.I32]:
+            return X86StackLoadI32(reg,ss)
+        else:
+            raise Exception("unsupported load register type")
+        
     
     def getSpillCode(self,reg,ss1,ss2):
         

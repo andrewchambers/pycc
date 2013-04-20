@@ -16,6 +16,7 @@ import interference
 import registerallocator
 
 import ir
+import function
 
 class Register(object):
     def __init__(self,name,sizes):
@@ -42,7 +43,6 @@ class StandardMachine(target.Target):
     
     def translateFunction(self,f,ofile):
         
-        f.resolveArguments()
         
         if self.args.show_all or self.args.show_preopt_function:
             irvis.showFunction(f)
@@ -53,8 +53,10 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_postopt_function:
             irvis.showFunction(f)
         
+        
         self.doInstructionSelection(f)
         
+        self.callingConventions(f)
         #we are no longer in ssa after this point
         
         for block in f:
@@ -65,9 +67,12 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_md_function_preallocation:
             irvis.showFunction(f)
         
+        
         ig = interference.InterferenceGraph(f)
         if self.args.show_all or self.args.show_interference:
             interferencevis.showInterferenceGraph(ig)
+        
+        self.calleeSaveRegisters(f,ig)
         
         ra = registerallocator.RegisterAllocator(self)
         ra.allocate(f,ig)
@@ -79,7 +84,6 @@ class StandardMachine(target.Target):
         
         
         self.prologAndEpilog(f)
-        
         self.preEmitCleanup(f)
         
         
@@ -114,6 +118,34 @@ class StandardMachine(target.Target):
             for instr in block:
                 ofile.write("\t" + instr.asm() + '\n')
     
+    def calleeSaveRegisters(self,func,ig):
+        #ig interference graph
+        for block in func:
+            idx = 0
+            while idx < len(block):
+                instr = block[idx]
+                if instr.isCall():
+                    liveset = ig.instrToLiveness[instr] - set(instr.assigned)
+                    before = []
+                    after = []
+                    for var in liveset:
+                        #raise Exception(str(liveset))
+                        #XXX this needs to be a proper size
+                        #XXX also should reuse these slots
+                        ss = function.StackSlot(8)
+                        func.addStackSlot(ss)
+                        before.append(self.getSaveRegisterInstruction(var,ss))
+                        after.append(self.getLoadRegisterInstruction(var,ss))
+                    
+                    for newInstr in before:
+                        block.insert(idx,newInstr)
+                        idx += 1
+                    
+                    for newInstr in after:
+                        block.insert(idx + 1,newInstr)
+                        idx += 1
+                idx += 1
+    
     def dagFixups(self,dag):
         raise Exception("unimplemented")
     
@@ -134,7 +166,6 @@ class StandardMachine(target.Target):
                     continue
                 idx += 1
                 
-        print (mappings)
         for block in f:
             for instr in block:
                 for mapping in mappings:
@@ -165,6 +196,40 @@ class StandardMachine(target.Target):
             if branchreplace.BranchReplace().runOnFunction(func):
                 continue
             break
+    
+    def callingConventions(self,func):
+        #XXX need to shift pushes to the definition to
+        #stop register pressure
+        for block in func:
+            idx = 0
+            while idx < len(block):
+                instr = block[idx]
+                
+                if type(instr) == ir.Call:
+                    newCall = self.getCallInstruction(instr)
+                    block[idx] = newCall
+                    pushInstructions = []
+                    stackChange = 0
+                    for var in reversed(instr.read):
+                        stackChange += 4
+                        #TODO ... must be the proper size...
+                        pushInstructions += self.pushArgument(var)
+                    
+                    for pushinstr in pushInstructions:
+                        block.insert(idx,pushinstr)
+                        idx += 1
+                    
+                    retReg = self.getReturnReg(instr.assigned[0])
+                    copy = self.getCopyFromPhysicalInstruction(instr.assigned[0],retReg)
+                    newCall.assigned = [retReg]
+                    idx += 1
+                    block.insert(idx,copy)
+                    
+                    if stackChange:
+                        block.insert(idx,self.getStackClearingInstruction(stackChange))
+                    
+                idx += 1
+    
     
     def doInstructionSelection(self,func):
         for b in func:
@@ -215,7 +280,7 @@ class StandardMachine(target.Target):
     def getRegisters(self):
         return []
     
-    def getInstructions(self):
+    def getMatchableInstructions(self):
         raise Exception("unimplemented")
     
     def getPossibleRegisters(self,v):
