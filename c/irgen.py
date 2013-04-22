@@ -292,7 +292,7 @@ class IRGenerator(c_ast.NodeVisitor):
             for arg in node.args.exprs:
                 finalArg = self.inFunctionDispatch(arg)
                 if finalArg.lval:
-                    finalArg = finalArg.deref()
+                    finalArg = self.genDeref(finalArg)
                 finalArgs.append(finalArg)
             
             #XXX assume rettype is int for now

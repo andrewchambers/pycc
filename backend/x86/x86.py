@@ -185,6 +185,7 @@ class X86GtI32(X86BasicBinopI32):
         "sarl $1,%%%(r)s; " + \
         "sbbl %%%(r)s,%%%(w)s; " + \
         "shrl $31,%%%(w)s; " + \
+        "xorl $1,%%%(w)s; " + \
         "popl %%%(r)s"
         
         return ret % args
@@ -742,29 +743,17 @@ class X86(standardmachine.StandardMachine):
         return registers
     
     def getSaveRegisterInstruction(self,reg,ss):
-        if type(reg) in [ir.Pointer,ir.I32]:
+        if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.ir.I32):
             return X86StackSaveI32(reg,ss)
         else:
-            raise Exception("unsupported save register type")
+            raise Exception("unsupported save register type %s" % reg)
         
     def getLoadRegisterInstruction(self,reg,ss):
-        if type(reg) in [ir.Pointer,ir.I32]:
+        if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.ir.I32):
             return X86StackLoadI32(reg,ss)
         else:
-            raise Exception("unsupported load register type")
+            raise Exception("unsupported load register type %s" % reg)
         
-    
-    def getSpillCode(self,reg,ss1,ss2):
-        
-        start = [X86StackSaveI32(),X86StackLoadI32()]
-        end = [X86StackSaveI32(),X86StackLoadI32()]
-        
-        start[0].read = [reg]
-        start[1].assigned = [reg]
-        end[0].read = [reg]
-        end[1].assigned = [reg]
-        
-        return start,end
     
     def terminatorSelection(self,instr):
         
