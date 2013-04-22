@@ -74,10 +74,17 @@ class IRGenerator(c_ast.NodeVisitor):
                 self.visit_FuncDef(ext)
             elif type(ext) == c_ast.Decl:
                 self.visit_globalDecl(ext)
+            elif type(ext) == c_ast.Typedef:
+                self.visit_typeDef(ext)
             else:
                 raise Exception("unhandled ast node type  %s" % str(ext))
         
         self.symTab.popScope()
+    
+    def visit_typeDef(self,td):
+        typeDefName = name
+        raise Exception("unimplemented")
+        
     
     def visit_globalDecl(self,decl):
         
