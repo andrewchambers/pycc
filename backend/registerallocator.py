@@ -1,5 +1,6 @@
 import itertools
 
+import function
 
 
 class RegisterAllocator(object):
@@ -68,24 +69,64 @@ class RegisterAllocator(object):
     
     def spill(self,f,ig):
         
-        for  b in f:
-            idx = 0
-            while idx != len(b):
-                instr = b[idx]
+        tospillSet = set()
+        varToSlotMapping = {}
+        
+        #collect all virtual registers that have not been allocated
+        for b in f:
+            for instr in b:
                 tospill = filter(lambda x : x.isPhysical() == False, itertools.chain(instr.read,instr.assigned))
-                for spillvar in tospill:
-                    raise Exception("broken")
-                    possible = set(self.target.getPossibleRegisters(spillvar)) - set(instr.read)
-                    reg = possible.pop()
-                    instr.swapVar(spillvar,reg)
-                    print "spilling %s - calc done in %s" %(spillvar,reg)
-                    #XXX get proper size... 4 ok for now
-                    ss1 = f.createAndAddSpillSlot(4)
-                    ss2 = f.createAndAddSpillSlot(4)
-                    start,end = self.target.getSpillCode(reg,ss1,ss2)
-                    b.opcodes = b.opcodes[:idx] + start + [instr] + end + b.opcodes[idx+1:]
-                    idx = idx + len(start)
-                idx += 1
+                map(lambda x : tospillSet.add(x),tospill)
+        
+        if len(tospillSet):
+            print "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+            for v in tospillSet:
+                #XXX get the correct size...
+                varslot = f.createAndAddSpillSlot(4)
+                backupslot = f.createAndAddSpillSlot(4)
+                varToSlotMapping[v] = [varslot,backupslot]
+            
+            for b in f:
+                idx = 0
+                while idx < len(b):
+                    instr = b[idx]
+                    before = []
+                    after = []
+                    readVirts = filter(lambda x : x.isPhysical() == False, instr.read)
+                    assignedVirts = filter(lambda x : x.isPhysical() == False, instr.assigned)
+                    allocated = set(filter(lambda x : x.isPhysical(), instr.read))
+                    
+                    for virt in readVirts:
+                        varSlot,backupSlot = varToSlotMapping[virt]
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        print "spilling: %s to %s" % (virt,reg)
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                    
+                    for virt in assignedVirts:
+                        varSlot,backupSlot = varToSlotMapping[virt]
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                    
+                    for spillinstr in before:
+                        b.insert(idx,spillinstr)
+                        idx += 1
+                    
+                    for spillinstr in after:
+                        b.insert(idx + 1,spillinstr)
+                        idx += 1
                     
                     
-                
+                    idx += 1
+
+        
+        
+        
+        
+        
+

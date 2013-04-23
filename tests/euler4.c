@@ -18,9 +18,7 @@ int main()
   for (i = 100; i < 1000; i++) {
     for (j = 100; j < 1000; j++) {
       int p = i*j;
-      
-      
-      if (is_palindromic(p) && p > max) {
+      if (is_palindromic(p) && p > max ) {
         max = p;
       }
     }
