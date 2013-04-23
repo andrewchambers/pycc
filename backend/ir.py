@@ -152,7 +152,10 @@ class LoadLocalAddr(Instruction):
             offset = self.sym.slot.offset
             
         return "%s = LoadLocalAddr %s" % (self.assigned[0],offset)
-        
+    
+    def getSlot(self):
+        return self.sym.slot
+    
         
 class LoadConstant(Instruction):
     def __init__(self,res,const):

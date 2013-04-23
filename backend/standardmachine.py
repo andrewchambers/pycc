@@ -10,6 +10,7 @@ from passes import blockmerge
 from passes import unused
 from passes import branchreplace
 from passes import constantfold
+from passes import mem2reg
 
 import instructionselector
 import interference
@@ -183,6 +184,9 @@ class StandardMachine(target.Target):
             block.removeInstructions(naiveMoves)
         
     def doIROpt(self,func):
+        
+        mem2reg.Mem2Reg().runOnFunction(func)
+        
         while True:
             #irvis.showFunction(func)
             if constantfold.ConstantFold().runOnFunction(func):

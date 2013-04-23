@@ -38,7 +38,7 @@ class RegisterAllocator(object):
                 chosenreg = None
                 
                 for reg in possibleregs:
-                    print("testing reg %s for position %s"%(reg,n))
+                    #print("testing reg %s for position %s"%(reg,n))
                     newmovecount = 0
                     for mvedge in ig.moveedges:
                         if n in mvedge:
@@ -52,7 +52,7 @@ class RegisterAllocator(object):
                             
                     
                     if newmovecount > movecount:
-                        print("reg %s is better than %s" % (reg,chosenreg))
+                        #print("reg %s is better than %s" % (reg,chosenreg))
                         movecount = newmovecount
                         chosenreg = reg
                 
@@ -79,7 +79,7 @@ class RegisterAllocator(object):
                 map(lambda x : tospillSet.add(x),tospill)
         
         if len(tospillSet):
-            print "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+            #print "*Note* Spilling some registers..."
             for v in tospillSet:
                 #XXX get the correct size...
                 varslot = f.createAndAddSpillSlot(4)
@@ -99,7 +99,6 @@ class RegisterAllocator(object):
                     for virt in readVirts:
                         varSlot,backupSlot = varToSlotMapping[virt]
                         reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
-                        print "spilling: %s to %s" % (virt,reg)
                         instr.swapVar(virt,reg)
                         before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
                         before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
