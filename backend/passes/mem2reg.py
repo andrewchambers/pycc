@@ -2,7 +2,7 @@
 import functionpass
 from backend import ir
 from backend import function
-
+from backend import dominators
 
 class PromoteableSlotTracker(object):
     
@@ -33,6 +33,7 @@ class PromoteableSlotTracker(object):
                 
             
         elif type(instr) == ir.Store:
+            print "XXXXXXXXXXXXX",instr
             #eliminate slots who have writes with differing types
             
             pointer = instr.read[0]
@@ -54,7 +55,8 @@ class PromoteableSlotTracker(object):
         for p in self.slotPointerMap[slot]:
             del self.slotPointerMap[p]
         del self.slotPointerMap[slot]
-        del self.slotUseTypes[slot]
+        if slot in self.slotUseTypes:
+            del self.slotUseTypes[slot]
     
     def isTrackingPointer(self,p):
         return p in self.slotPointerMap
@@ -74,6 +76,51 @@ class PromoteableSlotTracker(object):
     
     
 class Mem2Reg(functionpass.FunctionPass):
+    
+    def ssaify(self,dominatorinfo,f,v):
+        
+        everInWorklist = set()
+        worklist = set()
+        hasphi = set()
+        addedPhis = set()
+        
+        for block in f:
+            for instr in block:
+                if v in instr.assigned:
+                    worklist.add(block)
+                    everInWorklist.add(block)
+        
+        while len(worklist):
+            n = worklist.pop()
+            for dfNode in dominatorinfo.getDominanceFrontier(n):
+                if dfNode not in hasphi:
+                    hasphi.add(dfNode)
+                    newPhi = ir.Phi(v)
+                    addedPhis.add(newPhi)
+                    dfNode.insert(0,newPhi)
+                    if dfNode not in everInWorklist:
+                        worklist.add(dfNode)
+                        everInWorklist.add(dfNode)
+        domtree = dominatorinfo.getDominatorTree()
+        self.rename(domtree,v,domtree['root'],v,addedPhis)
+    
+    def rename(self,dominatortree,v,block,newv,addedPhis):
+        
+        for instr in block:
+            if type(instr) != ir.Phi:
+                instr.swapRead(v,newv)
+            if v in instr.assigned:
+                newv = type(v)()
+                instr.swapAssigned(v,newv)
+        
+        for successor in block.getSuccessors():
+            for instr in successor:
+                if type(instr) == ir.Phi:
+                    if instr in addedPhis:
+                        instr.read.append(newv)
+        if block in dominatortree:
+            for next in dominatortree[block]:
+                self.rename(dominatortree,v,next,newv,addedPhis)
     
     def runOnFunction(self,f):
         
@@ -100,11 +147,11 @@ class Mem2Reg(functionpass.FunctionPass):
         allocations = {}
         
         topromote = stracker.getPromoteableSlots()
-        print topromote
+        #print topromote
         for slot,regclass in topromote:
             allocations[slot] = regclass()
         
-        
+        #convert loads and stores to copys
         for block in f:
             for idx,instr in enumerate(block):
                 if type(instr) == ir.Deref:
@@ -115,5 +162,16 @@ class Mem2Reg(functionpass.FunctionPass):
                     promoteableSlot = stracker.getPromoteableSlotFromPointer(instr.read[0])
                     if promoteableSlot:
                         block[idx] = ir.Move(allocations[promoteableSlot],instr.read[1])
+        
+        #Now that we have moved out of SSA, we must move back into SSA
+        
+        di = dominators.DominatorInfo(f)
+        
+        for v in allocations.values():
+            self.ssaify(di,f,v)
+        print di.dominators
+        print di.getDominatorTree()
+        print di.getDominanceFrontiers()
+        
         
         return True

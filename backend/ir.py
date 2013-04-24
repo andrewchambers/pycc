@@ -59,6 +59,17 @@ class Instruction(object):
                 if v is old:
                     arr[k] = new
     
+    def swapRead(self,old,new):
+        for k,v in enumerate(self.read):
+            if v is old:
+                self.read[k] = new
+                    
+    def swapAssigned(self,old,new):
+        for k,v in enumerate(self.assigned):
+            if v is old:
+                self.assigned[k] = new
+    
+    
     def asm(self):
         return "#%s" % str(self)
     

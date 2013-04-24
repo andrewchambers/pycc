@@ -44,6 +44,8 @@ class BasicBlock(object):
             return True
         return False
     
+    def getSuccessors(self):
+        return self[-1].getSuccessors()
     
     def getReachableBlocks(self):
         def generator():
@@ -56,7 +58,7 @@ class BasicBlock(object):
                 visited.add(curblock)
                 yield curblock
                 if len(curblock):
-                    for b in curblock[-1].getSuccessors():
+                    for b in curblock.getSuccessors():
                         stack.append(b)
         return generator()
     

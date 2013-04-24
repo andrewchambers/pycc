@@ -23,22 +23,20 @@ class InterferenceGraph(object):
         #init the sucessor table
         successors = {}
         for block in function:
-            successors[block] = list(block[-1].getSuccessors())
+            successors[block] = list(block.getSuccessors())
 
         changed = True
         while changed:
             changed = False
             for block in blockstates:
-                newout = set()
                 newin = set()
                 blockstate = blockstates[block]
                 if len(successors[block]) == 0:
                     newout = set()
                 else:
-                    for s in successors[block]:
-                        newout = newout.union(blockstates[s][2])
+                    newout = set.union(*map(lambda s : blockstates[s][2],successors[block]))
                     newout = newout.intersection( blockstate[1].union(blockstate[2]) )
-                newin = blockstate[0].union(newout - blockstate[1])
+                newin = set.union(blockstate[0],newout - blockstate[1])
                  
                 if blockstate[2] != newin or blockstate[3] != newout:
                     blockstate[2] = newin

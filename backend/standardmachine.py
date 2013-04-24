@@ -10,6 +10,7 @@ from passes import blockmerge
 from passes import unused
 from passes import branchreplace
 from passes import constantfold
+from passes import copypropagation
 from passes import mem2reg
 
 import instructionselector
@@ -189,6 +190,8 @@ class StandardMachine(target.Target):
         
         while True:
             #irvis.showFunction(func)
+            if copypropagation.CopyPropagation().runOnFunction(func):
+                continue
             if constantfold.ConstantFold().runOnFunction(func):
                 continue
             if jumpfix.JumpFix().runOnFunction(func):
@@ -200,7 +203,7 @@ class StandardMachine(target.Target):
             if branchreplace.BranchReplace().runOnFunction(func):
                 continue
             break
-    
+        
     def callingConventions(self,func):
         #XXX need to shift pushes to the definition to
         #stop register pressure
