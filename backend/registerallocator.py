@@ -58,7 +58,8 @@ class RegisterAllocator(object):
                 
                 allocations[n] = chosenreg
             else:
-                print("failed to")
+                print("failed to allocate a register for %s" % n)
+                #raise Exception()
         
         for b in f:
             for i in b:

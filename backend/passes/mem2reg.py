@@ -33,7 +33,7 @@ class PromoteableSlotTracker(object):
                 
             
         elif type(instr) == ir.Store:
-            print "XXXXXXXXXXXXX",instr
+            #print "XXXXXXXXXXXXX",instr
             #eliminate slots who have writes with differing types
             
             pointer = instr.read[0]
@@ -46,6 +46,13 @@ class PromoteableSlotTracker(object):
                 
                 if storeType != self.slotUseTypes[slot]:
                     self.eliminateSlot(slot)
+            
+            #store can use the pointer as an argument too
+            #which prevents us from promoting to a register...
+            v = instr.read[1]
+            if self.isTrackingPointer(v):
+                self.eliminateSlot(self.slotPointerMap[v])
+            
         else:
             for v in instr.read:
                 if self.isTrackingPointer(v):
@@ -147,6 +154,10 @@ class Mem2Reg(functionpass.FunctionPass):
         allocations = {}
         
         topromote = stracker.getPromoteableSlots()
+        
+        for slot in topromote:
+            print slot
+        
         #print topromote
         for slot,regclass in topromote:
             allocations[slot] = regclass()

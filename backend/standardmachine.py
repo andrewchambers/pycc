@@ -183,7 +183,7 @@ class StandardMachine(target.Target):
             idx = 0
             naiveMoves = [instr for instr in block if instr.isMove() and instr.read[0] == instr.assigned[0] ]
             block.removeInstructions(naiveMoves)
-        
+    
     def doIROpt(self,func):
         
         mem2reg.Mem2Reg().runOnFunction(func)
