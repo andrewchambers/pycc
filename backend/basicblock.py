@@ -15,6 +15,12 @@ class BasicBlock(object):
     def __setitem__(self,k,v):
         self.opcodes[k] = v
     
+    def __delitem__(self,idx):
+        del self.opcodes[idx]
+    
+    def insert(self,idx,op):
+        self.opcodes.insert(idx,op)
+    
     def prepend(self,op):
         self.opcodes.insert(0,op)
     
@@ -30,11 +36,16 @@ class BasicBlock(object):
     def __repr__(self):
         return self.name
     
+    def removeInstructions(self,instructions):
+        self.opcodes = [op for op in self.opcodes if op not in instructions]
+    
     def unsafeEnding(self):
         if len(self) == 0 or (not self[-1].isTerminator() and not self[-1].isBranch()):
             return True
         return False
     
+    def getSuccessors(self):
+        return self[-1].getSuccessors()
     
     def getReachableBlocks(self):
         def generator():
@@ -47,7 +58,7 @@ class BasicBlock(object):
                 visited.add(curblock)
                 yield curblock
                 if len(curblock):
-                    for b in curblock[-1].getSuccessors():
+                    for b in curblock.getSuccessors():
                         stack.append(b)
         return generator()
     

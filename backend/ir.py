@@ -1,29 +1,29 @@
 
 counter = 0
 
-class Variable(object):
+class VirtualRegister(object):
     
     def __init__(self):
         global counter
         counter += 1
         self.name = "v%d"%counter
-        self.lval = False
-        self.pcount = 0
     
     def isPhysical(self):
         return False
     
     def __repr__(self):
         tstr = "%s" % self.__class__.__name__
-        if self.lval:
-            tstr += " lval"
-        stars = "*"* self.pcount
-        return "(%s%s) %s" %(tstr,stars,self.name)
+        return "(%s) %s" %(tstr,self.name)
     
     def getSize(self):
         raise Exception("no size avaliable")
     
-class I32(Variable):
+class I32(VirtualRegister):
+    
+    def getSize(self):
+        return 4
+
+class Pointer(VirtualRegister):
     
     def getSize(self):
         return 4
@@ -35,6 +35,7 @@ class Constant(object):
 class ConstantI32(Constant):
     def __init__(self,v):
         self.value = int(v)
+    
 
 class Instruction(object):
     
@@ -57,10 +58,26 @@ class Instruction(object):
             for k,v in enumerate(arr):
                 if v is old:
                     arr[k] = new
-        
+    
+    def swapRead(self,old,new):
+        for k,v in enumerate(self.read):
+            if v is old:
+                self.read[k] = new
+                    
+    def swapAssigned(self,old,new):
+        for k,v in enumerate(self.assigned):
+            if v is old:
+                self.assigned[k] = new
+    
+    
+    def asm(self):
+        return "#%s" % str(self)
     
     def getSuccessors(self):
         return self.successors
+        
+    def setSuccessors(self,new):
+        self.successors = new
         
     def swapSuccessor(self,old,new):
         for k,v in enumerate(self.successors):
@@ -78,6 +95,9 @@ class Instruction(object):
     
     def isMove(self):
         return False
+    
+    def isCall(self):
+        return False
 
 class Binop(Instruction):
     def __init__(self,op,res,l,r):
@@ -94,10 +114,26 @@ class Binop(Instruction):
         return "%s = %s %s %s"%(self.assigned[0],self.read[0],self.op,
                                     self.read[1])
 
-class Call(Instruction):
+class Unop(Instruction):
+    def __init__(self,op,res,arg):
+        self.op = op
+        self.assigned = [res]
+        self.read = [arg]
+    
     def __repr__(self):
-        return "call"
+        return "%s = %s %s"%(self.assigned[0],self.op,self.read[0])
 
+class Call(Instruction):
+    def __init__(self,label):
+        Instruction.__init__(self)
+        self.label = label
+        
+    def __repr__(self):
+        return "%s = call %s %s"%(self.assigned[0],self.label,self.read)
+
+    def isCall(self):
+        return True
+        
 class LoadGlobalAddr(Instruction):
     def __init__(self,res,sym):
         Instruction.__init__(self)
@@ -127,7 +163,10 @@ class LoadLocalAddr(Instruction):
             offset = self.sym.slot.offset
             
         return "%s = LoadLocalAddr %s" % (self.assigned[0],offset)
-        
+    
+    def getSlot(self):
+        return self.sym.slot
+    
         
 class LoadConstant(Instruction):
     def __init__(self,res,const):
@@ -193,8 +232,17 @@ class Jmp(Terminator):
 class Identity(Instruction):
     def __init__(self,v):
         Instruction.__init__(self)
-        self.read = []
         self.assigned = [v]
+
+class Phi(Instruction):
+    def __init__(self,*args):
+        Instruction.__init__(self)
+        args = list(args)
+        self.read = args[1:]
+        self.assigned = [args[0]]
+    
+    def __repr__(self):
+        return "%s = Phi %s" % (self.assigned[0],self.read)
 
 class Move(Instruction):
     def __init__(self,l,r):

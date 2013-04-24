@@ -13,17 +13,34 @@ class Function(object):
         self.name = name
         self.entry = None
         self.stackslots = []
+        self.localsSize = 0
+        self.argumentslots = []
+    
+    def createAndAddSpillSlot(self,size):
+        ss = StackSlot(size)
+        self.addStackSlot(ss)
+        return ss
+    
+    def addArgumentSlot(self,ss):
+        if len(self.argumentslots) == 0:
+            ss.offset = 0
+        else:
+            ss.offset = self.argumentslots[-1].offset + self.argumentslots[-1].size
+        self.argumentslots.append(ss)
     
     def addStackSlot(self,ss):
         #XXX probably pretty inefficient
         if ss not in self.stackslots:
             self.stackslots.append(ss)
     
+    
     def resolveStack(self):
+        #XXX depends if stack grows up or down...
         offset = 0
         for slot in self.stackslots:
-            slot.offset = offset
             offset += slot.size
+            slot.offset = offset
+        self.localsSize = offset
     
     def setEntryBlock(self,entry):
         self.entry = entry

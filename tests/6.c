@@ -1,16 +1,29 @@
 
 int 
-main (int argc, char *argv[])
+main ()
 {
-    int i = 0;
+    
+    int counter = 0;
     
     again:
     
-    for(;;) for(;;)  {
-        goto again;
+    for(;;) {
+        
+        outerloop:
+        
+        if (counter == 1000) {
+            counter = 50;
+            break;
+        }
+        
+        for(;;)  {
+            counter += 1;
+            if(counter == 1000) {
+                goto outerloop;
+            }
+        }
+        
     }
     
-    exit:
-    
-    return 0;
+    return counter - 50;
 }

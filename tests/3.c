@@ -2,7 +2,12 @@
 
 
 
-int main(int argc) {
-    int x = 0;
-    return x * 1 + argc * 1;
+int main() {
+    int x = 6;
+    
+    x = x / 2;
+    
+    x -= 3;
+    
+    return x;
 }

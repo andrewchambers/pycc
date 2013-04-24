@@ -1,19 +1,18 @@
 
 int 
-main (int argc, char *argv[])
+main ()
 {
-    1;
+
+    int test = 0;
+
     start:
-    2;
-    if(argc){
+
+    if(test){
         goto start;
-    } else if (1) {
-        3;
     } else {
         goto end;
     }
     
-    4;
     
     end:
     

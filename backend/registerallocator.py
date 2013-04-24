@@ -1,5 +1,6 @@
 import itertools
 
+import function
 
 
 class RegisterAllocator(object):
@@ -13,13 +14,6 @@ class RegisterAllocator(object):
         nodes = list(ig.nodes)
         degrees = {}
         
-        usedRegisters = set()
-        
-        for b in f:
-            for i in b:
-                for v in itertools.chain(i.read,i.assigned):
-                    if v.isPhysical():
-                        usedRegisters.add(v)
         
         for v in nodes:
             degree = 0
@@ -31,6 +25,8 @@ class RegisterAllocator(object):
         nodes.sort(key=lambda n : degrees[n])
         
         for n in nodes:
+            if n.isPhysical():
+                continue
             interferes = ig.getInterferes(n)
             interferes = set([allocations.get(x,x) for x in interferes ])
             possibleregs = self.target.getPossibleRegisters(n)
@@ -38,24 +34,32 @@ class RegisterAllocator(object):
             
             if len(possibleregs):
                 
-                possibleAndUsed = list(filter(lambda x : x in usedRegisters, possibleregs))
-                if len(possibleAndUsed):
-                    chosenreg = possibleAndUsed.pop()
-                else:
-                    chosenreg = possibleregs.pop()
+                movecount = -1
+                chosenreg = None
                 
-                usedRegisters.add(chosenreg)
+                for reg in possibleregs:
+                    #print("testing reg %s for position %s"%(reg,n))
+                    newmovecount = 0
+                    for mvedge in ig.moveedges:
+                        if n in mvedge:
+                            for v in mvedge:
+                                if v != n:
+                                    if v.isPhysical() and v == reg:
+                                        newmovecount += 1
+                                    elif allocations.get(v,None) == reg:
+                                        newmovecount += 1
+                                    break
+                            
+                    
+                    if newmovecount > movecount:
+                        #print("reg %s is better than %s" % (reg,chosenreg))
+                        movecount = newmovecount
+                        chosenreg = reg
+                
                 allocations[n] = chosenreg
-                
-                #XXX todo use move edges
-                #regcounts = {}
-                
-                #for reg in possibleregs:
-                #    regcounts[reg] = 0
-                #    for mvedge in ig.moveedges:
-                #        if n in mvedge and :
-                #allocations[n] = max(possibleregs,key=lambda r : )
-        
+            else:
+                print("failed to allocate a register for %s" % n)
+                #raise Exception()
         
         for b in f:
             for i in b:
@@ -66,22 +70,63 @@ class RegisterAllocator(object):
     
     def spill(self,f,ig):
         
-        for  b in f:
-            idx = 0
-            while idx != len(b):
-                instr = b[idx]
+        tospillSet = set()
+        varToSlotMapping = {}
+        
+        #collect all virtual registers that have not been allocated
+        for b in f:
+            for instr in b:
                 tospill = filter(lambda x : x.isPhysical() == False, itertools.chain(instr.read,instr.assigned))
-                for spillvar in tospill:
-                    possible = set(self.target.getPossibleRegisters(spillvar)) - set(instr.read)
-                    reg = possible.pop()
-                    instr.swapVar(spillvar,reg)
-                    print "spilling %s - calc done in %s" %(spillvar,reg)
-                    ss1 = None
-                    ss2 = None
-                    start,end = self.target.getSpillCode(reg,ss1,ss2)
-                    b.opcodes = b.opcodes[:idx] + start + [instr] + end + b.opcodes[idx+1:]
-                    idx = idx + len(start)
-                idx += 1
+                map(lambda x : tospillSet.add(x),tospill)
+        
+        if len(tospillSet):
+            #print "*Note* Spilling some registers..."
+            for v in tospillSet:
+                #XXX get the correct size...
+                varslot = f.createAndAddSpillSlot(4)
+                backupslot = f.createAndAddSpillSlot(4)
+                varToSlotMapping[v] = [varslot,backupslot]
+            
+            for b in f:
+                idx = 0
+                while idx < len(b):
+                    instr = b[idx]
+                    before = []
+                    after = []
+                    readVirts = filter(lambda x : x.isPhysical() == False, instr.read)
+                    assignedVirts = filter(lambda x : x.isPhysical() == False, instr.assigned)
+                    allocated = set(filter(lambda x : x.isPhysical(), instr.read))
+                    
+                    for virt in readVirts:
+                        varSlot,backupSlot = varToSlotMapping[virt]
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                    
+                    for virt in assignedVirts:
+                        varSlot,backupSlot = varToSlotMapping[virt]
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                    
+                    for spillinstr in before:
+                        b.insert(idx,spillinstr)
+                        idx += 1
+                    
+                    for spillinstr in after:
+                        b.insert(idx + 1,spillinstr)
+                        idx += 1
                     
                     
-                
+                    idx += 1
+
+        
+        
+        
+        
+        
+

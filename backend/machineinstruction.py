@@ -3,6 +3,8 @@ from ir import Instruction
 
 class MI(Instruction):
     
+    needsTwoAddressFixup = False
+    
     def asm(self):
         return self.__class__.__name__
     
