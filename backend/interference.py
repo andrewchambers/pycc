@@ -94,6 +94,11 @@ class InterferenceGraph(object):
         
         self.moveedges = moveedges
         
+    def removeVar(self,v):
+        for edge in self.interferece:
+            edge.discard(v)
+        for edge in self.moveedges:
+            edge.discard(v)
     
     def getInterferes(self,n):
         ret = set()
