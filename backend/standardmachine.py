@@ -64,6 +64,9 @@ class StandardMachine(target.Target):
         for block in f:
             self.blockFixups(block)
         
+        for block in f:
+            self.fixBranchRegister(block)
+        
         self.removePhiNodes(f)
         
         if self.args.show_all or self.args.show_md_function_preallocation:
@@ -147,6 +150,14 @@ class StandardMachine(target.Target):
                         block.insert(idx + 1,newInstr)
                         idx += 1
                 idx += 1
+    
+    def fixBranchRegister(self,block):
+        if type(block[-1]) == ir.Branch:
+            reg = self.getPossibleRegisters(block[-1].read[0])
+            copy = self.copyFromPhysicalInstruction(block[-1].read[0],reg)
+            block[-1].read[0] = reg
+            block.insert(-1,copy)
+            
     
     def dagFixups(self,dag):
         raise Exception("unimplemented")
