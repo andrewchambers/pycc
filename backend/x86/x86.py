@@ -569,10 +569,10 @@ matchableInstructions = [
 registers = [
     standardmachine.Register('eax',[ir.I32,ir.Pointer]),
     standardmachine.Register('ebx',[ir.I32,ir.Pointer]),
-    standardmachine.Register('ecx',[ir.I32,ir.Pointer]),
+    #standardmachine.Register('ecx',[ir.I32,ir.Pointer]),
     standardmachine.Register('edx',[ir.I32,ir.Pointer]),
-    standardmachine.Register('edi',[ir.I32,ir.Pointer]),
-    standardmachine.Register('esi',[ir.I32,ir.Pointer]),
+    #standardmachine.Register('edi',[ir.I32,ir.Pointer]),
+    #standardmachine.Register('esi',[ir.I32,ir.Pointer]),
     
 ]
 

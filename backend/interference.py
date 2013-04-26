@@ -35,9 +35,10 @@ class InterferenceGraph(object):
                     newout = set()
                 else:
                     newout = set.union(*map(lambda s : blockstates[s][2],successors[block]))
-                    newout = newout.intersection( blockstate[1].union(blockstate[2]) )
+                    #newout = newout.intersection( blockstate[1].union(blockstate[2]) )
+                
                 newin = set.union(blockstate[0],newout - blockstate[1])
-                 
+                
                 if blockstate[2] != newin or blockstate[3] != newout:
                     blockstate[2] = newin
                     blockstate[3] = newout
@@ -46,13 +47,18 @@ class InterferenceGraph(object):
         liveness = []
         instrToLiveness = {}
         
+        sortedblockstates = list(blockstates.items())
+        sortedblockstates.sort(key=lambda x : str(x[0]))
+        print blockstates
+        print
+        for block in sortedblockstates:
+            print "XXXXXXX %s livein: %s liveout: %s" % (block[0],block[1][2],block[1][3])
+        
         for block in blockstates:
-            #print("XXXXX %s: gen %s kill %s livein %s liveout %s"% (block,blockstates[block][0],blockstates[block][1],blockstates[block][2],blockstates[block][3]))
+            
             live = blockstates[block][3]
             #work backwards from liveout
             for instr in reversed(block):
-                
-                
                 
                 for v in instr.assigned:
                     if v in live:

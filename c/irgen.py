@@ -552,11 +552,14 @@ class IRGenerator(c_ast.NodeVisitor):
             
             self.curBasicBlock.append(ir.LoadConstant(constZero.reg,ir.ConstantI32(0)))
             self.curBasicBlock.append(ir.Binop('!=',result2.reg,rv.reg,constZero.reg))
+            
+            result2Reaching = self.curBasicBlock
+            
             if self.curBasicBlock.unsafeEnding():
                 self.curBasicBlock.append(ir.Jmp(next))
             
             self.curBasicBlock = next
-            self.curBasicBlock.append(ir.Phi(result3.reg,result2.reg,result1.reg))
+            self.curBasicBlock.append(ir.Phi(result3.reg,[(result2.reg,result2Reaching),(result1.reg,shortCircuit)]))
             
             return result3
             

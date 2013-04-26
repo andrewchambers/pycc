@@ -33,13 +33,13 @@ class DominatorInfo(object):
         while redo:
             redo = False
             for node in allnodes:
-                print "XXX",node
+                #print "XXX",node
                 preddominatorsets = map(lambda pred : dominators[pred],predecessors[node])
-                print "intersection of",preddominatorsets
+                #print "intersection of",preddominatorsets
                 newdomset = set.intersection(*preddominatorsets)
                 newdomset.add(node)
                 if newdomset != dominators[node]:
-                    print "change!",newdomset
+                    #print "change!",newdomset
                     dominators[node] = newdomset
                     redo = True
             

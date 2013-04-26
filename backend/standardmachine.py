@@ -163,18 +163,11 @@ class StandardMachine(target.Target):
             while idx < len(block):
                 instr = block[idx]
                 if type(instr) == ir.Phi:
-                    mappings.append( [instr.assigned[0]] + instr.read)
+                    for bidx,v in enumerate(instr.read):
+                        instr.blocks[bidx].insert(-1,self.getCopyFromPhysicalInstruction(instr.assigned[0],v))
                     del block[idx]
                     continue
                 idx += 1
-                
-        for block in f:
-            for instr in block:
-                for mapping in mappings:
-                    newV = mapping[0]
-                    others = mapping[1:]
-                    for oldV in others:
-                        instr.swapVar(oldV,newV)
         
         
         
@@ -187,21 +180,21 @@ class StandardMachine(target.Target):
     def doIROpt(self,func):
         
         mem2reg.Mem2Reg().runOnFunction(func)
-        
+        #irvis.showFunction(func)
         while True:
             #irvis.showFunction(func)
             if copypropagation.CopyPropagation().runOnFunction(func):
                 continue
-            if constantfold.ConstantFold().runOnFunction(func):
-                continue
-            if jumpfix.JumpFix().runOnFunction(func):
-                continue
-            if blockmerge.BlockMerge().runOnFunction(func):
-                continue
+            #if constantfold.ConstantFold().runOnFunction(func):
+            #    continue
+            #if jumpfix.JumpFix().runOnFunction(func):
+            #    continue
+            #if blockmerge.BlockMerge().runOnFunction(func):
+            #    continue
             if unused.UnusedVars().runOnFunction(func):
                 continue
-            if branchreplace.BranchReplace().runOnFunction(func):
-                continue
+            #if branchreplace.BranchReplace().runOnFunction(func):
+            #    continue
             break
         
     def callingConventions(self,func):

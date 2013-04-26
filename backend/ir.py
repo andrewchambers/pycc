@@ -1,4 +1,5 @@
 
+
 counter = 0
 
 class VirtualRegister(object):
@@ -235,14 +236,18 @@ class Identity(Instruction):
         self.assigned = [v]
 
 class Phi(Instruction):
-    def __init__(self,*args):
+    def __init__(self,lhs,args):
         Instruction.__init__(self)
         args = list(args)
-        self.read = args[1:]
-        self.assigned = [args[0]]
+        self.read = []
+        self.blocks = []
+        for v,block in args:
+            self.read.append(v)
+            self.blocks.append(block)
+        self.assigned = [lhs]
     
     def __repr__(self):
-        return "%s = Phi %s" % (self.assigned[0],self.read)
+        return "%s = Phi %s" % (self.assigned[0], zip(self.read,self.blocks))
 
 class Move(Instruction):
     def __init__(self,l,r):

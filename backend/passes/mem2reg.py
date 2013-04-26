@@ -102,7 +102,7 @@ class Mem2Reg(functionpass.FunctionPass):
             for dfNode in dominatorinfo.getDominanceFrontier(n):
                 if dfNode not in hasphi:
                     hasphi.add(dfNode)
-                    newPhi = ir.Phi(v)
+                    newPhi = ir.Phi(v,[])
                     addedPhis.add(newPhi)
                     dfNode.insert(0,newPhi)
                     if dfNode not in everInWorklist:
@@ -125,6 +125,7 @@ class Mem2Reg(functionpass.FunctionPass):
                 if type(instr) == ir.Phi:
                     if instr in addedPhis:
                         instr.read.append(newv)
+                        instr.blocks.append(block)
         if block in dominatortree:
             for next in dominatortree[block]:
                 self.rename(dominatortree,v,next,newv,addedPhis)
@@ -155,8 +156,8 @@ class Mem2Reg(functionpass.FunctionPass):
         
         topromote = stracker.getPromoteableSlots()
         
-        for slot in topromote:
-            print slot
+        #for slot in topromote:
+        #    print slot
         
         #print topromote
         for slot,regclass in topromote:
@@ -180,9 +181,9 @@ class Mem2Reg(functionpass.FunctionPass):
         
         for v in allocations.values():
             self.ssaify(di,f,v)
-        print di.dominators
-        print di.getDominatorTree()
-        print di.getDominanceFrontiers()
+        #print di.dominators
+        #print di.getDominatorTree()
+        #print di.getDominanceFrontiers()
         
         
         return True

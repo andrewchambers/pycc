@@ -61,14 +61,19 @@ class RegisterAllocator(object):
                 print("failed to allocate a register for %s" % n)
                 #raise Exception()
         
+        #allocpairs = list(allocations.items())
+        #allocpairs.sort(key=lambda x : str(x[0])+str(x[1]) )
+        #for a in allocpairs:
+        #    print a
+        
         for b in f:
             for i in b:
                 for v in allocations:
                     i.swapVar(v,allocations[v])
         
-        self.spill(f,ig)
+        self.spill(f)
     
-    def spill(self,f,ig):
+    def spill(self,f):
         
         tospillSet = set()
         varToSlotMapping = {}
