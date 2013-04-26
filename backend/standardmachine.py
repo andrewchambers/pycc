@@ -65,7 +65,7 @@ class StandardMachine(target.Target):
             self.blockFixups(block)
         
         for block in f:
-            self.fixBranchRegister(block)
+            self.fixBranchRegisters(block)
         
         self.removePhiNodes(f)
         
@@ -151,10 +151,10 @@ class StandardMachine(target.Target):
                         idx += 1
                 idx += 1
     
-    def fixBranchRegister(self,block):
+    def fixBranchRegisters(self,block):
         if type(block[-1]) == ir.Branch:
-            reg = self.getPossibleRegisters(block[-1].read[0])
-            copy = self.copyFromPhysicalInstruction(block[-1].read[0],reg)
+            reg = self.getPossibleRegisters(block[-1].read[0])[0]
+            copy = self.getCopyInstruction(reg,block[-1].read[0])
             block[-1].read[0] = reg
             block.insert(-1,copy)
             

@@ -7,11 +7,13 @@ int main()
 
   while (a3 < 4000000) {
     a3 = a1 + a2;
+    //printf("%d %d %d",a1,a2,a3);
     sum += a3 * !(a3%2);
     a1 = a2;
     a2 = a3;
   }
-
+    
+  //printf("sum %d",sum);
   if(sum != 4613732){
     return 1;
   }

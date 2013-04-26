@@ -353,44 +353,6 @@ class X86LoadParamAddr(machineinstruction.MI):
 
 
 
-
-class X86StoreLocalI32(machineinstruction.MI):
-    
-    
-    @classmethod
-    def match(cls,dag,node):
-        
-        if type(node.instr) != ir.Store:
-            return None
-        
-        loadAddr = node.ins[0].edge.tail.parent
-        
-        
-        if type(loadAddr.instr) != ir.LoadLocalAddr:
-            return None
-        
-        oldsourceport = node.ins[1].edge.tail
-        
-        def repl():
-            sla = X86StoreLocalI32()
-            sla.read = [None]
-            sla.sym = loadAddr.instr.sym
-            node.ins[1].edge.remove()
-            node.instr = sla
-            SDDataEdge(node.ins[0],oldsourceport)
-        return InstructionMatch(repl,2)
-
-    def asm(self):
-        r = self.read[0]
-        offset = self.sym.slot.offset
-        if offset == None:
-            offsetStr = "XXX"
-        else:
-            offsetStr = str(-1 * (4 + offset))
-        
-        return "mov %%%s, %s(%%ebp) "%(r,offsetStr)
-
-
 class X86LoadI32(machineinstruction.MI):
     
     @classmethod
@@ -524,7 +486,7 @@ class X86StackLoadI32(machineinstruction.MI):
         self.assigned = [reg]
 
     def asm(self):
-        return "mov %d(%%ebp), %%%s "%(self.slot.offset,self.assigned[0])
+        return "mov -%d(%%ebp), %%%s "%(self.slot.offset,self.assigned[0])
         
 
 
@@ -535,7 +497,7 @@ class X86StackSaveI32(machineinstruction.MI):
         self.read = [reg]
     
     def asm(self):
-        return "mov %%%s,%d(%%ebp)"%(self.read[0],self.slot.offset)
+        return "mov %%%s,-%d(%%ebp)"%(self.read[0],self.slot.offset)
 
 
 matchableInstructions = [
@@ -720,6 +682,17 @@ class X86(standardmachine.StandardMachine):
     def getStackClearingInstruction(self,amount):
         return X86StackFree(amount)
     
+    def getCopyInstruction(self,toReg,fromReg):
+        
+        if type(fromReg) in [ir.Pointer,ir.I32]:
+            ret = X86MovI32()
+            ret.read = [fromReg]
+            ret.assigned = [toReg]
+            return ret
+        else:
+            raise Exception("XXXXXX")
+    
+    #XXX decprecate this infavour of the above?
     def getCopyFromPhysicalInstruction(self,virt,reg):
         
         if type(virt) in [ir.Pointer,ir.I32]:

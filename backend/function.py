@@ -33,6 +33,8 @@ class Function(object):
         if ss not in self.stackslots:
             self.stackslots.append(ss)
     
+    def removeStackSlot(self,ss):
+        self.stackslots.remove(ss)
     
     def resolveStack(self):
         #XXX depends if stack grows up or down...

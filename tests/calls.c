@@ -1,11 +1,17 @@
 
 int foo(int a, int b, int c, int d) {
-    return 0;
+    return b + c - a -d + 100;
 }
 
 
 int main() {
     
-    return foo(0,1,2,3);
+    int x;
+    
+    x = 50;
+    
+    int y = 50;
+    
+    return foo(0,1,2,3) - x - y;
     
 }

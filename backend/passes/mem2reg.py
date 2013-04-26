@@ -162,6 +162,7 @@ class Mem2Reg(functionpass.FunctionPass):
         #print topromote
         for slot,regclass in topromote:
             allocations[slot] = regclass()
+            f.removeStackSlot(slot)
         
         #convert loads and stores to copys
         for block in f:
