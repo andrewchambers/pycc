@@ -1,14 +1,11 @@
 
-
-int f1(){
-    return 1;
+int foo(int a, int b, int c, int d) {
+    return 0;
 }
 
-int f2(int a, int b) {
-    return (a + b) * 2;
-}
 
 int main() {
     
-    return (f1() + f2(f1(),f1() + f1() + 3)) - 13;
+    return foo(0,1,2,3);
+    
 }
