@@ -4,6 +4,8 @@ from backend import ir
 from backend import function
 from backend import dominators
 
+from vis import irvis
+
 class PromoteableSlotTracker(object):
     
     def __init__(self):
@@ -178,10 +180,14 @@ class Mem2Reg(functionpass.FunctionPass):
         
         #Now that we have moved out of SSA, we must move back into SSA
         
+        
+        
         di = dominators.DominatorInfo(f)
         
         for v in allocations.values():
+            #print v
             self.ssaify(di,f,v)
+            #irvis.showFunction(f)
         #print di.dominators
         #print di.getDominatorTree()
         #print di.getDominanceFrontiers()

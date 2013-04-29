@@ -98,25 +98,49 @@ class RegisterAllocator(object):
                     instr = b[idx]
                     before = []
                     after = []
-                    readVirts = filter(lambda x : x.isPhysical() == False, instr.read)
-                    assignedVirts = filter(lambda x : x.isPhysical() == False, instr.assigned)
+                    
+                    readVirts = set(filter(lambda x : x.isPhysical() == False, instr.read))
+                    assignedVirts = set(filter(lambda x : x.isPhysical() == False, instr.assigned))
+                    
+                    readAndAssignedVirts = set.intersection(readVirts,assignedVirts)
+                    
+                    readVirts.difference_update(readAndAssignedVirts)
+                    assignedVirts.difference_update(readAndAssignedVirts)
+                    
+                    
                     allocated = set(filter(lambda x : x.isPhysical(), instr.read))
+                    #XXX these sets have non deterministic iterators
+                    
+                    for virt in readAndAssignedVirts:
+                        varSlot,backupSlot = varToSlotMapping[virt]
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                        allocated.add(reg)
+                    
                     
                     for virt in readVirts:
+                        #raise Exception()
                         varSlot,backupSlot = varToSlotMapping[virt]
                         reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
                         instr.swapVar(virt,reg)
                         before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
                         before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
                         after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                        allocated.add(reg)
                     
                     for virt in assignedVirts:
+                        #raise Exception()
                         varSlot,backupSlot = varToSlotMapping[virt]
                         reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
                         instr.swapVar(virt,reg)
                         before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
                         after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
                         after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                        allocated.add(reg)
                     
                     for spillinstr in before:
                         b.insert(idx,spillinstr)

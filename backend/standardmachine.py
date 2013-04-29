@@ -167,19 +167,44 @@ class StandardMachine(target.Target):
     
     def removePhiNodes(self,f):
         
-        mappings = []
+        blockCopies = {}
         
         for block in f:
             idx = 0
             while idx < len(block):
                 instr = block[idx]
                 if type(instr) == ir.Phi:
-                    for bidx,v in enumerate(instr.read):
-                        instr.blocks[bidx].insert(-1,self.getCopyFromPhysicalInstruction(instr.assigned[0],v))
                     del block[idx]
+                    toAdd = []
+                    for bidx,v in enumerate(instr.read):
+                        curBlockToAddCopy = instr.blocks[bidx]
+                        if curBlockToAddCopy not in blockCopies:
+                            blockCopies[curBlockToAddCopy] = []
+                        blockCopies[curBlockToAddCopy].append(self.getCopyFromPhysicalInstruction(instr.assigned[0],v))
                     continue
                 idx += 1
         
+        
+        #phi functions that depend on values overwritten by other phis
+        #need to be sorted. This sort here manages the dependencies
+        def cmpFunction(i1,i2):
+            for x in i2.read:
+                if x in i1.assigned:
+                    #i2 should come before i1
+                    return 1
+            
+            for x in i1.read:
+                if x in i2.assigned:
+                    #i1 should come before i2
+                    return -1
+            return 0
+        
+        
+        for block in blockCopies:
+            copies = blockCopies[block]
+            copies.sort(cmp=cmpFunction)
+            for copyInstr in copies:
+                block.insert(-1,copyInstr)
         
         
     def preEmitCleanup(self,f):
@@ -194,6 +219,8 @@ class StandardMachine(target.Target):
         #irvis.showFunction(func)
         while True:
             #irvis.showFunction(func)
+            if unused.UnusedVars().runOnFunction(func):
+                continue
             if copypropagation.CopyPropagation().runOnFunction(func):
                 continue
             #if constantfold.ConstantFold().runOnFunction(func):
@@ -202,8 +229,6 @@ class StandardMachine(target.Target):
             #    continue
             #if blockmerge.BlockMerge().runOnFunction(func):
             #    continue
-            if unused.UnusedVars().runOnFunction(func):
-                continue
             #if branchreplace.BranchReplace().runOnFunction(func):
             #    continue
             break

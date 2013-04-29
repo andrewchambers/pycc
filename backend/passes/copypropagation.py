@@ -1,14 +1,14 @@
 import functionpass
 from backend import ir
 
-
+from vis import irvis
 
 class CopyPropagation(functionpass.FunctionPass):
     
     def runOnFunction(self,f):
         changed = False
         chain = {}
-        
+        #irvis.showFunction(f)
         #build a chain of equivalent vars
         
         for block in f:
@@ -19,12 +19,15 @@ class CopyPropagation(functionpass.FunctionPass):
                     if len(instr.read) == 1:
                         chain[instr.assigned[0]] = instr.read[0]
                         del block[idx]
+                        idx += 1
                         changed = True
                         continue
                 idx += 1
         
         if not changed:
             return False
+        
+        #print chain
         
         chainChanged = True
         while chainChanged:
