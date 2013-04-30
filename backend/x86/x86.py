@@ -486,7 +486,13 @@ class X86StackLoadI32(machineinstruction.MI):
         self.assigned = [reg]
 
     def asm(self):
-        return "mov -%d(%%ebp), %%%s "%(self.slot.offset,self.assigned[0])
+        
+        if self.slot.offset != None:
+            return "mov -%d(%%ebp), %%%s "%(self.slot.offset,self.assigned[0])
+        else:
+            return "mov -XXX(%%ebp), %%%s "%(self.assigned[0])
+    
+        
         
 
 
@@ -497,7 +503,12 @@ class X86StackSaveI32(machineinstruction.MI):
         self.read = [reg]
     
     def asm(self):
-        return "mov %%%s,-%d(%%ebp)"%(self.read[0],self.slot.offset)
+        if self.slot.offset != None:
+            return "mov %%%s,-%d(%%ebp)"%(self.read[0],self.slot.offset)
+        else:
+            return "mov %%%s,-XXX(%%ebp)"%(self.read[0])
+        
+        
 
 
 matchableInstructions = [

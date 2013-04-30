@@ -61,10 +61,6 @@ class RegisterAllocator(object):
                 print("failed to allocate a register for %s" % n)
                 #raise Exception()
         
-        #allocpairs = list(allocations.items())
-        #allocpairs.sort(key=lambda x : str(x[0])+str(x[1]) )
-        #for a in allocpairs:
-        #    print a
         
         for b in f:
             for i in b:
@@ -108,8 +104,9 @@ class RegisterAllocator(object):
                     assignedVirts.difference_update(readAndAssignedVirts)
                     
                     
-                    allocated = set(filter(lambda x : x.isPhysical(), instr.read))
+                    allocated = set(filter(lambda x : x.isPhysical(), instr.read + instr.assigned))
                     #XXX these sets have non deterministic iterators
+                    
                     
                     for virt in readAndAssignedVirts:
                         varSlot,backupSlot = varToSlotMapping[virt]
@@ -141,6 +138,7 @@ class RegisterAllocator(object):
                         after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
                         after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
                         allocated.add(reg)
+                    
                     
                     for spillinstr in before:
                         b.insert(idx,spillinstr)
