@@ -90,11 +90,18 @@ class X86IDivI32(X86BasicBinopI32):
     
     op = '/'
     
+    def getPreClobberedRegisters(self):
+        return [getRegisterByName('edx')]
+    
     def asm(self):
         return "cdq; idiv %%%s"%(self.read[1])
 
 class X86IModI32(X86BasicBinopI32):
     op = '%'
+    
+    def getPreClobberedRegisters(self):
+        return [getRegisterByName('edx')]
+    
     def asm(self):
         return "cdq; idiv %%%s"%(self.read[1])
 
@@ -546,7 +553,6 @@ registers = [
     standardmachine.Register('edx',[ir.I32,ir.Pointer]),
     standardmachine.Register('edi',[ir.I32,ir.Pointer]),
     standardmachine.Register('esi',[ir.I32,ir.Pointer]),
-    
 ]
 
 def getRegisterByName(n):
@@ -603,7 +609,6 @@ class X86(standardmachine.StandardMachine):
             if type(instr) in [X86IMultI32,X86IDivI32,X86IModI32]:
                 if type(instr.read[0]) == ir.I32:
                     
-                        
                     eax = getRegisterByName('eax')
                     edx = getRegisterByName('edx')
                     

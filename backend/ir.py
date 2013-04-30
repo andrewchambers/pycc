@@ -99,6 +99,16 @@ class Instruction(object):
     
     def isCall(self):
         return False
+    
+    #these registers are clobbered after they are used as input
+    
+    def getClobberedRegisters(self):
+        return []
+    
+    #these registers are clobbered before they can be used as input
+    
+    def getPreClobberedRegisters(self):
+        return []
 
 class Binop(Instruction):
     def __init__(self,op,res,l,r):

@@ -49,10 +49,10 @@ class InterferenceGraph(object):
         
         sortedblockstates = list(blockstates.items())
         sortedblockstates.sort(key=lambda x : str(x[0]))
-        print blockstates
-        print
-        for block in sortedblockstates:
-            print "XXXXXXX %s livein: %s liveout: %s" % (block[0],block[1][2],block[1][3])
+        #print blockstates
+        #print
+        #for block in sortedblockstates:
+        #    print "XXXXXXX %s livein: %s liveout: %s" % (block[0],block[1][2],block[1][3])
         
         for block in blockstates:
             
@@ -64,7 +64,9 @@ class InterferenceGraph(object):
                     if v in live:
                         live.remove(v)
                 
-                liveness.append(live.copy().union(set(instr.assigned)))
+                liveness.append(set.union(live,set(instr.assigned)))
+                #print instr
+                #print liveness[-1]
                 instrToLiveness[instr] = liveness[-1]
                 
                 for v in instr.read:
@@ -89,16 +91,26 @@ class InterferenceGraph(object):
         
         for b in function:
             for i in b:
+                
+                for pcr in i.getPreClobberedRegisters():
+                    for r in i.read:
+                        edge = set([pcr,r])
+                        if edge not in self.interference:
+                            self.interference.append(edge)
+                
                 if i.isMove():
-                    moveedges.append(set([i.assigned[0],i.read[0]]))
+                    moveedges.append([i.assigned[0],i.read[0]])
         
         self.moveedges = moveedges
         
     def removeVar(self,v):
-        for edge in self.interferece:
+        for edge in self.interference:
             edge.discard(v)
-        for edge in self.moveedges:
-            edge.discard(v)
+        
+        self.moveedges = list(filter(lambda edge : v not in edge,self.moveedges))
+        
+        
+
     
     def getInterferes(self,n):
         ret = set()

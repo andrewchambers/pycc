@@ -72,7 +72,6 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_md_function_preallocation:
             irvis.showFunction(f)
         
-        
         ig = interference.InterferenceGraph(f)
         if self.args.show_all or self.args.show_interference:
             interferencevis.showInterferenceGraph(ig)
@@ -80,7 +79,7 @@ class StandardMachine(target.Target):
         self.calleeSaveRegisters(f,ig)
         
         ra = registerallocator.RegisterAllocator(self)
-        ra.allocate(f,ig)
+        ra.allocate(f)
         
         f.resolveStack()
         
@@ -223,14 +222,14 @@ class StandardMachine(target.Target):
                 continue
             if copypropagation.CopyPropagation().runOnFunction(func):
                 continue
-            #if constantfold.ConstantFold().runOnFunction(func):
-            #    continue
+            if constantfold.ConstantFold().runOnFunction(func):
+                continue
             #if jumpfix.JumpFix().runOnFunction(func):
             #    continue
-            #if blockmerge.BlockMerge().runOnFunction(func):
-            #    continue
-            #if branchreplace.BranchReplace().runOnFunction(func):
-            #    continue
+            if blockmerge.BlockMerge().runOnFunction(func):
+                continue
+            if branchreplace.BranchReplace().runOnFunction(func):
+                continue
             break
         
     def callingConventions(self,func):

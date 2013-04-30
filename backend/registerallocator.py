@@ -1,6 +1,8 @@
 import itertools
 
 import function
+import interference
+from vis import interferencevis
 
 
 class RegisterAllocator(object):
@@ -8,85 +10,67 @@ class RegisterAllocator(object):
     def __init__(self,tgt):
         self.target = tgt
     
-    def allocate(self,f,ig):
+    def allocate(self,f):
         
-        allocations = {}
-        nodes = list(ig.nodes)
-        degrees = {}
-        
-        
-        for v in nodes:
-            degree = 0
-            for edge in ig.interference:
-                if v in edge:
-                    degree += 1
-            degrees[v] = degree
-        
-        nodes.sort(key=lambda n : degrees[n])
-        
-        for n in nodes:
-            if n.isPhysical():
-                continue
-            interferes = ig.getInterferes(n)
-            interferes = set([allocations.get(x,x) for x in interferes ])
-            possibleregs = self.target.getPossibleRegisters(n)
-            possibleregs = filter(lambda x : x not in interferes ,possibleregs )
+        spilled = True
+        while spilled:
+            spilled = False
+            ig = interference.InterferenceGraph(f)
+            #interferencevis.showInterferenceGraph(ig)
+            allocations = {}
+            nodes = list(ig.nodes)
+            degrees = {}
             
-            if len(possibleregs):
+            
+            for v in nodes:
+                degree = 0
+                for edge in ig.interference:
+                    if v in edge:
+                        degree += 1
+                degrees[v] = degree
+            
+            nodes.sort(key=lambda n : degrees[n])
+            
+            for n in nodes:
+                if n.isPhysical():
+                    continue
+                interferes = ig.getInterferes(n)
+                interferes = set([allocations.get(x,x) for x in interferes ])
+                possibleregs = self.target.getPossibleRegisters(n)
+                possibleregs = filter(lambda x : x not in interferes ,possibleregs )
                 
-                movecount = -1
-                chosenreg = None
-                
-                for reg in possibleregs:
-                    #print("testing reg %s for position %s"%(reg,n))
-                    newmovecount = 0
-                    for mvedge in ig.moveedges:
-                        if n in mvedge:
-                            for v in mvedge:
-                                if v != n:
-                                    if v.isPhysical() and v == reg:
-                                        newmovecount += 1
-                                    elif allocations.get(v,None) == reg:
-                                        newmovecount += 1
-                                    break
-                            
-                    
-                    if newmovecount > movecount:
-                        #print("reg %s is better than %s" % (reg,chosenreg))
-                        movecount = newmovecount
-                        chosenreg = reg
-                
-                allocations[n] = chosenreg
-            else:
-                print("failed to allocate a register for %s" % n)
-                #raise Exception()
-        
+                if len(possibleregs):
+                    possibleregs.sort(key=lambda x : x.name)
+                    #print possibleregs
+                    allocations[n] = possibleregs.pop()
+                else:
+                    #print '-----------------'
+                    #print allocations
+                    #print '-----------------'
+                    for b in f:
+                        for i in b:
+                            for v in allocations:
+                                i.swapVar(v,allocations[v])
+                    print("failed to allocate a register for %s" % n)
+                    self.spill(f,n)
+                    spilled = True
+                    break
+        #print '-----------------'
+        #print allocations
+        #print '-----------------'
         
         for b in f:
             for i in b:
                 for v in allocations:
                     i.swapVar(v,allocations[v])
         
-        self.spill(f)
     
-    def spill(self,f):
-        
-        tospillSet = set()
-        varToSlotMapping = {}
-        
-        #collect all virtual registers that have not been allocated
-        for b in f:
-            for instr in b:
-                tospill = filter(lambda x : x.isPhysical() == False, itertools.chain(instr.read,instr.assigned))
-                map(lambda x : tospillSet.add(x),tospill)
-        
-        if len(tospillSet):
-            #print "*Note* Spilling some registers..."
-            for v in tospillSet:
-                #XXX get the correct size...
-                varslot = f.createAndAddSpillSlot(4)
-                backupslot = f.createAndAddSpillSlot(4)
-                varToSlotMapping[v] = [varslot,backupslot]
+    def spill(self,f,virt):
+
+            #XXX get the correct size...
+            varSlot = f.createAndAddSpillSlot(4)
+            backupSlot = f.createAndAddSpillSlot(4)
+
             
             for b in f:
                 idx = 0
@@ -95,49 +79,33 @@ class RegisterAllocator(object):
                     before = []
                     after = []
                     
-                    readVirts = set(filter(lambda x : x.isPhysical() == False, instr.read))
-                    assignedVirts = set(filter(lambda x : x.isPhysical() == False, instr.assigned))
-                    
-                    readAndAssignedVirts = set.intersection(readVirts,assignedVirts)
-                    
-                    readVirts.difference_update(readAndAssignedVirts)
-                    assignedVirts.difference_update(readAndAssignedVirts)
-                    
-                    
                     allocated = set(filter(lambda x : x.isPhysical(), instr.read + instr.assigned))
                     #XXX these sets have non deterministic iterators
                     
                     
-                    for virt in readAndAssignedVirts:
-                        varSlot,backupSlot = varToSlotMapping[virt]
+                    if virt in instr.read and virt in instr.assigned:
+                        #print instr
                         reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
                         instr.swapVar(virt,reg)
                         before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
                         before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
                         after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
                         after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
-                        allocated.add(reg)
-                    
-                    
-                    for virt in readVirts:
-                        #raise Exception()
-                        varSlot,backupSlot = varToSlotMapping[virt]
+                    elif virt in instr.read:
+                        #print instr
                         reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
                         instr.swapVar(virt,reg)
                         before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
                         before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
                         after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
                         allocated.add(reg)
-                    
-                    for virt in assignedVirts:
-                        #raise Exception()
-                        varSlot,backupSlot = varToSlotMapping[virt]
+                    elif virt in instr.assigned:
+                        #print instr
                         reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
                         instr.swapVar(virt,reg)
                         before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
                         after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
                         after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
-                        allocated.add(reg)
                     
                     
                     for spillinstr in before:
