@@ -8,7 +8,7 @@ from backend import ir
 from valtracker import ValTracker
 
 import types
-
+import cstrings
 
 class Symbol(object):
     
@@ -446,7 +446,7 @@ class IRGenerator(c_ast.NodeVisitor):
             t = self.typeTab.lookupType('char')
             reg = ir.Pointer()
             v = ValTracker(False,types.Pointer(t),reg)
-            op = ir.LoadGlobalAddr(reg,GlobalSym(self.module.addString(const.value + '\0'),v.type.clone()))
+            op = ir.LoadGlobalAddr(reg,GlobalSym(self.module.addString(cstrings.parseCString(const.value)),v.type.clone()))
             self.curBasicBlock.append(op)
             return v
         else:

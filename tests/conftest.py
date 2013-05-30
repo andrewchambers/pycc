@@ -109,6 +109,7 @@ def pytest_collect_file(parent, path):
     if path.ext == ".c":
         return CFile(path, parent)
 
+
 class CFile(pytest.File):
     def collect(self):
         testpath = str(self.fspath)
