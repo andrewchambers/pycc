@@ -70,96 +70,57 @@ class RegisterAllocator(object):
             #XXX get the correct size...
             varSlot = f.createAndAddSpillSlot(4)
             backupSlot = f.createAndAddSpillSlot(4)
-            
-            print "XXX"
-            print "spilling ",virt
+
             
             for b in f:
                 idx = 0
-                spilledReg = None
-                hasBeenAssigned = False
-                
-                before = []
-                after = []
-                print "start of block",b
-                #for instrx in b:
-                #    print '\t',instrx
                 while idx < len(b):
                     instr = b[idx]
-                    print instr
+                    before = []
+                    after = []
                     
-                    #print "\tProcessing",instr
-                    
-                    #spill a reg if we need to , try to keep using it until
-                    #another opcode tries to use it, if this happens
-                    #we have to restore it
-                    
-                    if spilledReg:
-                        if spilledReg in instr.assigned or spilledReg in instr.read:
-                            print("\t\trestoring spilled reg %s" % spilledReg)
-                            
-                            #XXX if hasBeenAssigned:
-                            after.append(self.target.getSaveRegisterInstruction(spilledReg,varSlot))
-                            #XXX if spilledReg in instr.read:
-                            after.append(self.target.getLoadRegisterInstruction(spilledReg,backupSlot))
-                            print "\t\t %s" % after
-                            for spillinstr in after:
-                                b.insert(idx,spillinstr)
-                                idx += 1
-                                after = []
-                            spilledReg = None
-                            hasBeenAssigned = False
+                    allocated = set(filter(lambda x : x.isPhysical(), instr.read + instr.assigned))
+                    #XXX these sets have non deterministic iterators
                     
                     
-                    if spilledReg == None:
-                        if virt in instr.read or virt in instr.assigned:
-                            #XXX these sets have non deterministic iterators
-                            allocated = set(filter(lambda x : x.isPhysical(), instr.read + instr.assigned))
-                            spilledReg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
-                            hasBeenAssigned = False
-                            print("\tspilling reg %s" % spilledReg)
-
-                        if virt in instr.read and virt in instr.assigned:
-                            #print instr
-                            before.append(self.target.getSaveRegisterInstruction(spilledReg,backupSlot))
-                            before.append(self.target.getLoadRegisterInstruction(spilledReg,varSlot))
-                        elif virt in instr.read:
-                            #print instr
-                            before.append(self.target.getSaveRegisterInstruction(spilledReg,backupSlot))
-                            before.append(self.target.getLoadRegisterInstruction(spilledReg,varSlot))
-                        elif virt in instr.assigned:
-                            before.append(self.target.getSaveRegisterInstruction(spilledReg,backupSlot))
-                        
-                        for spillinstr in before:
-                            b.insert(idx,spillinstr)
-                            idx += 1
-                            before = []
+                    if virt in instr.read and virt in instr.assigned:
+                        #print instr
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                    elif virt in instr.read:
+                        #print instr
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
+                        allocated.add(reg)
+                    elif virt in instr.assigned:
+                        #print instr
+                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
+                        instr.swapVar(virt,reg)
+                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
+                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
+                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
                     
-                    if virt in instr.assigned:
-                        hasBeenAssigned = True
                     
-                    if spilledReg != None:
-                        instr.swapVar(virt,spilledReg)
+                    for spillinstr in before:
+                        b.insert(idx,spillinstr)
+                        idx += 1
+                    
+                    for spillinstr in after:
+                        b.insert(idx + 1,spillinstr)
+                        idx += 1
+                    
                     
                     idx += 1
-                
-                print("end of block")
-                
-                #end of block and we have a spilled reg, restore it.
-                if spilledReg:
-                    print("\t\trestoring spilled reg %s" % spilledReg)
-                    
-                    #abort now...
-                    if hasBeenAssigned:
-                        after.append(self.target.getSaveRegisterInstruction(spilledReg,varSlot))
-                    after.append(self.target.getLoadRegisterInstruction(spilledReg,backupSlot))
-                    print "\t\t %s" % after
-                    for spillinstr in after:
-                        b.insert(idx-1,spillinstr)
-                        after = []
-                
-                for instrx in b:
-                    print '\t',instrx
+
+        
+        
         
         
         

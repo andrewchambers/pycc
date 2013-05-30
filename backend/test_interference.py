@@ -17,7 +17,7 @@ class TestInterferenceGraph(unittest.TestCase):
         #1  mov %v1, %v3 - live(v1,v3)
         #2  mov $2, %v2 - live(v2,v3)
         #3  add %v2,%v3 - live(v2,v3)
-        #4  mov %v3, %v4 - live(v3,v4)
+        #4  mov %v3, %v4 - live(v3)
         #5  ret %v4 - live(v4)
         
         
@@ -44,6 +44,5 @@ class TestInterferenceGraph(unittest.TestCase):
         
         #interferencevis.showInterferenceGraph(ig)
         
-        
         self.assertTrue(set([v3,v2]) in ig.interference)
-        self.assertTrue(set([v3,v4]) in ig.interference)
+        self.assertTrue(set([v3,v1]) in ig.interference)
