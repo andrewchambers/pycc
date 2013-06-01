@@ -82,8 +82,10 @@ class IRGenerator(c_ast.NodeVisitor):
         self.symTab.popScope()
     
     def visit_typeDef(self,td):
-        typeDefName = name
-        raise Exception("unimplemented")
+        #print td.type
+        #print dir(td.type)
+        t = self._recursivelyCreateType(td)
+        self.typeTab.registerType(td.name,t,isTypedef=True)
         
     
     def visit_globalDecl(self,decl):
@@ -204,7 +206,9 @@ class IRGenerator(c_ast.NodeVisitor):
         
         if type(decl.type) == c_ast.TypeDecl:
             if type(decl.type.type) == c_ast.Struct:
-                return self.typeTab.lookupType(decl.type.type.name)
+                print dir(decl.type.type)
+                print (decl.type.type.decls)
+                return self.typeTab.lookupType(decl.type.type.name,isStructType=True)
             else:
                 return self.typeTab.lookupType(decl.type.type.names[0])
         elif type(decl.type) == c_ast.ArrayDecl:
@@ -215,7 +219,7 @@ class IRGenerator(c_ast.NodeVisitor):
             
             if type(decl.type.type) == c_ast.TypeDecl:
                 if type(decl.type.type.type) == c_ast.Struct:
-                    return types.Array(self.typeTab.lookupType(decl.type.type.type.name),int(dim.value))
+                    return types.Array(self.typeTab.lookupType(decl.type.type.type.name,isStructType=True),int(dim.value))
                 else:
                     return types.Array(self.typeTab.lookupType(decl.type.type.type.names[0]),int(dim.value))
             else:
@@ -224,7 +228,7 @@ class IRGenerator(c_ast.NodeVisitor):
         elif type(decl.type) == c_ast.PtrDecl:
             if type(decl.type.type) == c_ast.TypeDecl:
                 if type(decl.type.type.type) == c_ast.Struct:
-                    return types.Pointer(self.typeTab.lookupType(decl.type.type.type.name))
+                    return types.Pointer(self.typeTab.lookupType(decl.type.type.type.name,isStructType=True))
                 else:
                     return types.Pointer(self.typeTab.lookupType(decl.type.type.type.names[0]))
             else:

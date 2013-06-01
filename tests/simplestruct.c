@@ -16,6 +16,7 @@ int main() {
     
     struct foo * p;
     
+    
     bar.x = 2;
     
     bar.y = 3;

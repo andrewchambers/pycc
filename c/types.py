@@ -2,7 +2,7 @@
 from backend import ir
 
 class Type(object):
-    pass
+    isStruct = False
 
 class Pointer(Type):
     
@@ -56,7 +56,9 @@ class Char(Type):
         return Char()
 
 class Struct(Type):
-
+    
+    isStruct = True
+    
     def __init__(self,name):
         self.name = name
         self.members = []
@@ -95,17 +97,26 @@ class TypeTable(object):
     def __init__(self):
          
          self.types = {}
+         self.structTypes = {}
          self.registerType('int', Int())
          self.registerType('char', Char())
     
-    def lookupType(self,name):
-        
-        ret = self.types[name].clone()
-        return ret
-        
-    def registerType(self,name,t):
-        
-        if name in self.types:
+    def lookupType(self,name,isStructType=False):
+        if isStructType:
+            ret = self.structTypes[name].clone()
+        else:    
+            ret = self.types[name].clone()
+        return ret 
+    
+    def registerType(self,name,t,isTypedef=False):
+        print "registering type",name
+        if name in self.types or name in self.structTypes:
             raise Exception("type %s already defined!" % name)
         
-        self.types[name] = t
+        if t.isStruct and isTypedef or not t.isStruct:
+            self.types[name] = t
+        else:
+            print "making struct type",name
+            self.structTypes[name] = t
+            
+            

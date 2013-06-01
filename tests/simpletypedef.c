@@ -1,28 +1,14 @@
 
 
-typedef struct _foo {
-    
-    int x;
-    int y;
-    
-} foo;
 
-typedef foo foofoo;
+
+typedef int foo;
 
 
 int main() {
     
-    foo bar;
+    foo x = 0;
     
-    foofoo barbar;
+    return x;
     
-    bar.x = 3;
-    bar.y = 3;
-    
-    barbar.x = 3;
-    barbar.y = 3;
-    
-    
-    
-    return bar.x + bar.y - barbar.y - barbar.y;
 }
