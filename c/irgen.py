@@ -80,7 +80,19 @@ class IRGenerator(c_ast.NodeVisitor):
                 raise Exception("unhandled ast node type  %s" % str(ext))
         
         self.symTab.popScope()
-    
+     
+    def handleTypeDecl(self,tdecl):
+        names = []
+        if type(tdecl.type) == c_ast.Struct:
+            structAst = tdecl.type
+            structType = types.Struct(structAst.name)
+            for member in structAst.decls:
+                m = self._recursivelyCreateType(member)
+                structType.addMember(member.name,m)
+            return names,structType
+        else:
+            raise Exception("XXX")        
+
     def visit_typeDef(self,td):
         #print td.type
         #print dir(td.type)
@@ -206,8 +218,8 @@ class IRGenerator(c_ast.NodeVisitor):
         
         if type(decl.type) == c_ast.TypeDecl:
             if type(decl.type.type) == c_ast.Struct:
-                print dir(decl.type.type)
-                print (decl.type.type.decls)
+                if decl.type.type.name == None:
+                    raise Exception("FOOO")
                 return self.typeTab.lookupType(decl.type.type.name,isStructType=True)
             else:
                 return self.typeTab.lookupType(decl.type.type.names[0])

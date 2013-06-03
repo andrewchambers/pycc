@@ -48,7 +48,8 @@ class TestConfiguration(object):
     def runTest(self):
         retcode = 0
         try:
-            output = subprocess.check_output(['timeout','2s',self.executeable],stderr=subprocess.STDOUT)
+            output = subprocess.check_output(['timeout','2s',self.executeable],
+                                                        stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             output = e.output
             retcode = e.returncode
@@ -96,10 +97,6 @@ class CCOPTX86(TestConfiguration):
     assembleCommand = "gcc {0} -o {1}"
 
 
-
-
-
-
 def pytest_addoption(parser):
     parser.addoption("--skipctests", action="store_true",
         help="Do not run the c tests")
@@ -123,7 +120,6 @@ class CTestItem(pytest.Item):
         pytest.Item.__init__(self,name,parent)
         self.testConf = testConf
         self.idealConf = idealConf
-        
     
     def runtest(self):
         
@@ -164,7 +160,8 @@ class CTestItem(pytest.Item):
             ])
 
     def reportinfo(self):
-        return self.fspath, 0, "%s testfile: %s" % (self.testConf.configurationName,self.name)
+        return self.fspath, 0, "%s testfile: %s" % (self.testConf.configurationName,
+                                                        self.name)
 
 class CTestException(Exception):
     """ custom exception for error reporting. """
