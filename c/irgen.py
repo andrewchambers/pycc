@@ -38,6 +38,10 @@ class SymbolTable(object):
     def __init__(self):
         self.scopes = []
     
+    def isGlobalScope(self):
+        assert(len(self.scopes)) > 0
+        return len(self.scopes) == 1
+
     def pushScope(self):
         self.scopes.append({})
         
@@ -73,7 +77,7 @@ class IRGenerator(c_ast.NodeVisitor):
             if type(ext) == c_ast.FuncDef:
                 self.visit_FuncDef(ext)
             elif type(ext) == c_ast.Decl:
-                self.visit_globalDecl(ext)
+                self.visit_Decl(ext)
             elif type(ext) == c_ast.Typedef:
                 self.visit_typeDef(ext)
             else:
@@ -81,36 +85,42 @@ class IRGenerator(c_ast.NodeVisitor):
         
         self.symTab.popScope()
      
-    def handleTypeDecl(self,tdecl):
-        names = []
-        if type(tdecl.type) == c_ast.Struct:
-            structAst = tdecl.type
-            structType = types.Struct(structAst.name)
-            for member in structAst.decls:
-                m = self._recursivelyCreateType(member)
-                structType.addMember(member.name,m)
-            return names,structType
-        else:
-            raise Exception("XXX")        
-
     def visit_typeDef(self,td):
-        #print td.type
-        #print dir(td.type)
-        t = self._recursivelyCreateType(td)
+        t = types.parseTypeDecl(self.typeTab,td.type)
         self.typeTab.registerType(td.name,t,isTypedef=True)
         
+ 
+    def visit_DeclList(self,decllist):
+        if decllist.decls:
+            for decl in decllist.decls:
+                self.inFunctionDispatch(decl)
     
-    def visit_globalDecl(self,decl):
-        
-        if type(decl.type) == c_ast.Struct:
-            structAst = decl.type
-            structType = types.Struct(structAst.name)
-            for member in structAst.decls:
-                m = self._recursivelyCreateType(member)
-                structType.addMember(member.name,m)
-            self.typeTab.registerType(structType.name,structType)
+    def isGlobalScope(self):
+        return self.symTab.isGlobalScope()
+
+    def visit_Decl(self,decl):
+        t = types.parseTypeDecl(self.typeTab,decl.type)
+        if self.isGlobalScope():
+            sym = GlobalSym(decl.name,t)
         else:
-            raise Exception("bug , unhandled decl type %s" % decl)
+            sym = LocalSym(decl.name,t)
+            self.curFunction.addStackSlot(sym.slot)
+        self.symTab.addSymbol(sym)
+        if not self.isGlobalScope():
+            if decl.init:
+                if type(decl.type) == c_ast.ArrayDecl:
+                    raise Exception("cannot currently handle Array initializers")
+                elif type(decl.type) == c_ast.PtrDecl:
+                    raise Exception("cannot currently handle Pointer initializers")
+                initializer = self.inFunctionDispatch(decl.init)
+                v = ir.Pointer()
+                op = ir.LoadLocalAddr(v,sym)
+                self.curBasicBlock.append(op)
+
+                if initializer.lval:
+                    initializer = self.genDeref(initializer)
+                op = ir.Store(v,initializer.reg)
+                self.curBasicBlock.append(op)
     
     def visit_FuncDef(self,funcdef):
         
@@ -123,7 +133,7 @@ class IRGenerator(c_ast.NodeVisitor):
         
         if funcdef.decl.type.args:
             for param in funcdef.decl.type.args.params:
-                t = self._recursivelyCreateType(param)
+                t = types.parseTypeDecl(self.typeTab,param)
                 if type(t) not in [types.Pointer,types.Int]:
                     raise Exception("cant handle type %s as a param yet" % t)
                 
@@ -148,7 +158,7 @@ class IRGenerator(c_ast.NodeVisitor):
         elif type(node) == c_ast.Compound:
             self.visit_Compound(node)
         elif type(node) == c_ast.Decl:
-            self.visit_inFunctionDecl(node)
+            self.visit_Decl(node)
         elif type(node) == c_ast.Return:
             self.visit_Return(node)
         elif type(node) == c_ast.Constant:
@@ -186,68 +196,6 @@ class IRGenerator(c_ast.NodeVisitor):
         else:
             raise Exception("unhandled ast node type  %s" % str(node))
     
-    def visit_DeclList(self,decllist):
-        if decllist.decls:
-            for decl in decllist.decls:
-                self.inFunctionDispatch(decl)
-    
-        
-
-    
-    def visit_inFunctionDecl(self,decl):
-        t = self._recursivelyCreateType(decl)
-        sym = LocalSym(decl.name,t)
-        self.symTab.addSymbol(sym)
-        self.curFunction.addStackSlot(sym.slot)
-        if decl.init:
-            if type(decl.type) == c_ast.ArrayDecl:
-                raise Exception("cannot currently handle Array initializers")
-            elif type(decl.type) == c_ast.PtrDecl:
-                raise Exception("cannot currently handle Pointer initializers")
-            initializer = self.inFunctionDispatch(decl.init)
-            v = ir.Pointer()
-            op = ir.LoadLocalAddr(v,sym)
-            self.curBasicBlock.append(op)
-
-            if initializer.lval:
-                initializer = self.genDeref(initializer)
-            op = ir.Store(v,initializer.reg)
-            self.curBasicBlock.append(op)
-    
-    def _recursivelyCreateType(self,decl):
-        
-        if type(decl.type) == c_ast.TypeDecl:
-            if type(decl.type.type) == c_ast.Struct:
-                if decl.type.type.name == None:
-                    raise Exception("FOOO")
-                return self.typeTab.lookupType(decl.type.type.name,isStructType=True)
-            else:
-                return self.typeTab.lookupType(decl.type.type.names[0])
-        elif type(decl.type) == c_ast.ArrayDecl:
-            dim = decl.type.dim
-            if dim:
-                if type(dim) != c_ast.Constant and dim.type != 'int':
-                        raise Exception("cannot handle a non integer sized constant array")
-            
-            if type(decl.type.type) == c_ast.TypeDecl:
-                if type(decl.type.type.type) == c_ast.Struct:
-                    return types.Array(self.typeTab.lookupType(decl.type.type.type.name,isStructType=True),int(dim.value))
-                else:
-                    return types.Array(self.typeTab.lookupType(decl.type.type.type.names[0]),int(dim.value))
-            else:
-                return types.Array(self._recursivelyCreateType(decl.type),int(dim.value))
-                
-        elif type(decl.type) == c_ast.PtrDecl:
-            if type(decl.type.type) == c_ast.TypeDecl:
-                if type(decl.type.type.type) == c_ast.Struct:
-                    return types.Pointer(self.typeTab.lookupType(decl.type.type.type.name,isStructType=True))
-                else:
-                    return types.Pointer(self.typeTab.lookupType(decl.type.type.type.names[0]))
-            else:
-                return types.Pointer(self._recursivelyCreateType(decl.type))
-        else:
-            raise Exception("XXXX error creating type")
-        
     def patchDanglingBlocks(self,start,next):
         def generator():
             visited = set()
