@@ -62,6 +62,10 @@ class IRGenerator(c_ast.NodeVisitor):
     def getModule(self):
         return self.module
     
+    def assertNonVoid(self,v):
+        if type(v.type) == types.Void:
+            raise Exception("value void!")
+
     def visit_FileAST(self,ast):
         
         self.typeTab = types.TypeTable()
@@ -113,6 +117,7 @@ class IRGenerator(c_ast.NodeVisitor):
                 elif type(decl.type) == c_ast.PtrDecl:
                     raise Exception("cannot currently handle Pointer initializers")
                 initializer = self.inFunctionDispatch(decl.init)
+                self.assertNonVoid(initializer)
                 v = ir.Pointer()
                 op = ir.LoadLocalAddr(v,sym)
                 self.curBasicBlock.append(op)
@@ -123,9 +128,10 @@ class IRGenerator(c_ast.NodeVisitor):
                 self.curBasicBlock.append(op)
     
     def visit_FuncDef(self,funcdef):
-        
-        self.symTab.addSymbol(GlobalSym(funcdef.decl.name,None))
+        functype = types.parseTypeDecl(self.typeTab,funcdef.decl)
+        self.symTab.addSymbol(GlobalSym(funcdef.decl.name,functype))
         self.curFunction = function.Function(funcdef.decl.name)
+        self.curFunctionType = functype
         self.module.addFunction(self.curFunction)
         self.curBasicBlock = basicblock.BasicBlock()
         self.curFunction.setEntryBlock(self.curBasicBlock)
@@ -257,20 +263,28 @@ class IRGenerator(c_ast.NodeVisitor):
         self.inFunctionDispatch(node.stmt)
         
     def visit_FuncCall(self,node):
-        
+        funcSym = self.symTab.lookupSymbol(node.name.name)
+        funcType = funcSym.type
         finalArgs = []
         if node.args:
-            for arg in node.args.exprs:
+            processingVarArgs = False
+            for i,arg in enumerate(node.args.exprs):
                 finalArg = self.inFunctionDispatch(arg)
+                self.assertNonVoid(finalArg)
+                if type(funcType.args[i]) == types.VarArgType:
+                    processingVarArgs = True
+                
+                if not processingVarArgs:
+                    if not finalArg.type.strictTypeMatch(funcType.args[i]):
+                        raise Exception("type mismatch in funcall")
+
                 if finalArg.lval:
                     finalArg = self.genDeref(finalArg)
                 finalArgs.append(finalArg)
             
-            #XXX assume rettype is int for now
-        retType = self.typeTab.lookupType('int')
+        retType = funcType.rettype.clone()
         retV = ValTracker(False,retType,None)
         retV.createVirtualReg()
-        #XXX this has to be a symtab lookup
         callinst = ir.Call(node.name.name)
         callinst.read = list(map(lambda v : v.reg,finalArgs))
         callinst.assigned = [retV.reg]
@@ -280,6 +294,7 @@ class IRGenerator(c_ast.NodeVisitor):
     def visit_If(self,node):
         
         v = self.inFunctionDispatch(node.cond)
+        self.assertNonVoid(v)
         if v.lval:
             v = self.genDeref(v)
         
@@ -314,7 +329,7 @@ class IRGenerator(c_ast.NodeVisitor):
         self.curBasicBlock = cnd
         
         v = self.inFunctionDispatch(node.cond)
-        
+        self.assertNonVoid(v)
         if v.lval:
             v = self.genDeref(v)
         
@@ -327,7 +342,6 @@ class IRGenerator(c_ast.NodeVisitor):
         
         if self.curBasicBlock.unsafeEnding():
             self.curBasicBlock.append(ir.Jmp(cnd))
-        #self.patchDanglingBlocks(body,cnd)
         self.curBreakTargets.pop()
         self.curContinueTargets.pop()
         
@@ -367,7 +381,7 @@ class IRGenerator(c_ast.NodeVisitor):
         
         if node.cond:
             v = self.inFunctionDispatch(node.cond)
-            
+            self.assertNonVoid(v)
             if v.lval:
                 v = self.genDeref(v)
             
@@ -413,14 +427,32 @@ class IRGenerator(c_ast.NodeVisitor):
             op = ir.LoadGlobalAddr(reg,GlobalSym(self.module.addString(cstrings.parseCString(const.value)),v.type.clone()))
             self.curBasicBlock.append(op)
             return v
+        elif const.type == 'char':
+            t = self.typeTab.lookupType('char')
+            v = ValTracker(False,types.Pointer(t),None)
+            v.createVirtualReg()
+            const = ir.ConstantI8(const.value)
+            op = ir.LoadConstant(v.reg,const)
+            self.curBasicBlock.append(op)
+            return v
+ 
         else:
             raise Exception('unimplemented constant load : %s' % const.coord)
     
     def visit_Return(self,ret):
-        val = self.inFunctionDispatch(ret.expr)
-        if val.lval:
-            val = self.genDeref(val)
-        retop = ir.Ret(val.reg)
+        if ret.expr == None:
+            if type(self.curFunctionType.rettype) != types.Void:
+                raise Exception("returning void in a non void function")
+            retop = ir.Ret()
+        else:
+            val = self.inFunctionDispatch(ret.expr)
+            self.assertNonVoid(val)
+            if not val.type.strictTypeMatch(self.curFunctionType.rettype):
+                raise Exception("bad return type!") 
+
+            if val.lval:
+                val = self.genDeref(val)
+            retop = ir.Ret(val.reg)
         self.curBasicBlock.append(retop)
     
     def visit_StructRef(self,node):
@@ -428,7 +460,7 @@ class IRGenerator(c_ast.NodeVisitor):
         field = node.field.name
         
         val = self.inFunctionDispatch(node.name)
-        
+        self.assertNonVoid(val) 
         if node.type == '->':
             if type(val.type) != types.Pointer and type(val.type.type) != types.Struct:
                 raise Exception("cannot perform -> on a non struct pointer")
@@ -468,7 +500,7 @@ class IRGenerator(c_ast.NodeVisitor):
     def visit_Binop(self,node):
         
         lv = self.inFunctionDispatch(node.left)
-        
+        self.assertNonVoid(lv)
         # a short circuit binop requires some branches
         if node.op in ['&&', '||']:
             if lv.lval:
@@ -508,6 +540,7 @@ class IRGenerator(c_ast.NodeVisitor):
             
             self.curBasicBlock = other
             rv = self.inFunctionDispatch(node.right)
+            self.assertNonVoid(rv)
             if rv.lval:
                 rv = self.genDeref(rv)
             
@@ -529,7 +562,8 @@ class IRGenerator(c_ast.NodeVisitor):
             
         else: # a normal binop
             rv = self.inFunctionDispatch(node.right)
-            
+            self.assertNonVoid(lv)
+            self.assertNonVoid(rv)
             if rv.lval:
                 rv = self.genDeref(rv)
             
@@ -563,9 +597,11 @@ class IRGenerator(c_ast.NodeVisitor):
     
     def visit_ArrayRef(self,node):
         v = self.inFunctionDispatch(node.name)
+        self.assertNonVoid(v)
         if type(v.type) == types.Array:
             
             idx = self.inFunctionDispatch(node.subscript)
+            self.assertNonVoid(idx)
             if idx.lval:
                 idx = self.genDeref(idx)
             
@@ -591,7 +627,7 @@ class IRGenerator(c_ast.NodeVisitor):
     def visit_UnaryOp(self,node):
         
         lv = self.inFunctionDispatch(node.expr)
-        
+        self.assertNonVoid(lv)
         if node.op in ['++','--']:
             if not lv.lval:
                 raise Exception("cant perform pre(%s) on a non lval" % node.op)
@@ -646,7 +682,8 @@ class IRGenerator(c_ast.NodeVisitor):
         
         lv = self.inFunctionDispatch(node.lvalue)
         rv = self.inFunctionDispatch(node.rvalue)
-        
+        self.assertNonVoid(lv)
+        self.assertNonVoid(rv)
         if type(lv.type) == types.Array:
             raise Exception('cannot assign to an array')
         

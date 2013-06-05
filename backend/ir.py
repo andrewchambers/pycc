@@ -36,6 +36,10 @@ class Constant(object):
 class ConstantI32(Constant):
     def __init__(self,v):
         self.value = int(v)
+
+class ConstantI8(Constant):
+    def __init__(self,v):
+        self.value = int(v)
     
 
 class Instruction(object):
@@ -214,9 +218,12 @@ class Terminator(Instruction):
         return True
         
 class Ret(Terminator):
-    def __init__(self,v):
+    def __init__(self,v=None):
         Terminator.__init__(self)
-        self.read = [v]
+        if v != None:
+            self.read = [v]
+        else:
+            self.read = []
     
     def __repr__(self):
         return "ret %s" % self.read[0]

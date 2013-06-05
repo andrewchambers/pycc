@@ -17,6 +17,8 @@ def parseTypeDecl(typeTable,node):
         return _parseFuncDecl(typeTable,node)
     elif type(node) == c_ast.Typename:
         return parseTypeDecl(typeTable,node.type)
+    elif type(node) == c_ast.EllipsisParam:
+        return VarArgType()
     else:
         raise Exception("unknown type %s" % node)
 
@@ -27,6 +29,15 @@ def _parseFuncDecl(typeTable,node):
     else:
         args = map( lambda arg : parseTypeDecl(typeTable,arg),
                     node.args.params)
+        
+        if len(args) == 1:
+            if type(args[0]) == Void:
+                args = []
+
+        for arg in args:
+            if type(arg) == Void:
+                raise Exception("Void argument not allowed")
+
     return Function(retType,args)
 
 def _parsePtrDecl(typeTable,node):
@@ -66,6 +77,14 @@ def _parseArrayDecl(typeTable,node):
 class Type(object):
     isStruct = False
 
+    def strictTypeMatch(self,t):
+        if type(t) != type(self):
+            return False
+        return True
+
+class VarArgType(Type):
+    pass
+
 class Function(object):
     def __init__(self,rettype,args):
         self.rettype = rettype
@@ -74,17 +93,49 @@ class Function(object):
     def clone(self):
         return Function(self.rettype.clone(),
                 map(lambda x : x.clone(),self.args))
-
+    
+    def strictTypeMatch(self,t):
+        if type(t) != Function:
+            return False
+        if not self.rettype.strictTypeMatch(t.rettype):
+            return False
+        
+        if len(self.args) != len(t.args):
+            return False
+        
+        for i in range(len(self.args)):
+            if not self.args[i].strictTypeMatch(t.args[i]):
+                return false
+        return True
 
 class Unqualified(Type):
     isStruct = True
 
     def __init__(self,name):
         self.name = name
+    
+    def createVirtualReg(self):
+        return ir.Pointer()
 
     def clone(self):
         return Unqualified(self.name)
+    
+    def strictTypeMatch(self,t):
+        if type(t) != Unqualified:
+            return False
 
+        if t.name != self.name:
+            return False
+
+        return True
+
+class Void(Type):
+    
+    def clone(self):
+        return Void()
+    
+    def createVirtualReg(self):
+        return None
 
 class Pointer(Type):
     
@@ -100,6 +151,12 @@ class Pointer(Type):
     def clone(self):
         return Pointer(self.type.clone())
     
+    def strictTypeMatch(self,t):
+        if type(t) != Pointer:
+            return False
+
+        return self.type.strictTypeMatch(t.type)
+
     
 class Array(Type):
     
@@ -116,6 +173,9 @@ class Array(Type):
     def createVirtualReg(self):
         return ir.Pointer()
 
+    def strictTypeMatch(self,t):
+        raise Exception("unimplemented")
+
 class Int(Type):
     
     def getSize(self):
@@ -126,6 +186,7 @@ class Int(Type):
     
     def clone(self):
         return Int()
+
 
 class Char(Type):
     def getSize(self):
@@ -179,7 +240,21 @@ class Struct(Type):
             ret.addMember(name,t.clone())
         
         return ret
-        
+    
+    def strictTypeMatch(self,t):
+        if type(t) != Struct:
+            return False
+
+        if len(self.members) != len(t.members):
+            return False
+
+        for i in range(len(self.members)):
+            if self.members[i][0] != t.members[i][0]:
+                return False
+            if not self.members[i][1].strictTypeMatch(t.members[i][1]):
+                return False
+
+        return True
 
 class TypeTable(object):
     
@@ -189,6 +264,7 @@ class TypeTable(object):
          self.structTypes = {}
          self.registerType('int', Int())
          self.registerType('char', Char())
+         self.registerType('void',Void())
     
     def lookupType(self,name,isStructType=False):
         if isStructType:

@@ -253,14 +253,15 @@ class StandardMachine(target.Target):
                     for pushinstr in pushInstructions:
                         block.insert(idx,pushinstr)
                         idx += 1
-                    
-                    retReg = self.getReturnReg(instr.assigned[0])
-                    copy = self.getCopyFromPhysicalInstruction(instr.assigned[0],retReg)
-                    newCall.assigned = [retReg]
-                    idx += 1
-                    block.insert(idx,copy)
+                    if instr.assigned[0] != None:
+                        retReg = self.getReturnReg(instr.assigned[0])
+                        copy = self.getCopyFromPhysicalInstruction(instr.assigned[0],retReg)
+                        newCall.assigned = [retReg]
+                        idx += 1
+                        block.insert(idx,copy)
                     
                     if stackChange:
+                        idx += 1
                         block.insert(idx,self.getStackClearingInstruction(stackChange))
                     
                 idx += 1

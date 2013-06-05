@@ -658,15 +658,16 @@ class X86(standardmachine.StandardMachine):
         while idx < blocklen:
             instr = block[idx]
             if type(instr) == ir.Ret:
-                if type(instr.read[0]) == ir.I32:
-                    eax = getRegisterByName('eax')
-                    mov = X86MovI32()
-                    mov.read = [instr.read[0]]
-                    mov.assigned = [eax]
-                    instr.read[0] = eax
-                    block.insert(idx,mov)
-                    idx += 1
-                    blocklen += 1
+                if len(instr.read):
+                    if type(instr.read[0]) == ir.I32:
+                        eax = getRegisterByName('eax')
+                        mov = X86MovI32()
+                        mov.read = [instr.read[0]]
+                        mov.assigned = [eax]
+                        instr.read[0] = eax
+                        block.insert(idx,mov)
+                        idx += 1
+                        blocklen += 1
                 else:
                     print("unsupported type for ret")
             idx += 1

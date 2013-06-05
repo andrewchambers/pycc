@@ -1,4 +1,6 @@
 
+void puts(char *);
+
 int main() {
     
     puts("hello...");

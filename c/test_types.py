@@ -128,3 +128,62 @@ def test_typeParsing():
     assert(type(parsed.type.rettype) == types.Int)
     assert(type(parsed.type.args[0]) == types.Int)
     assert(len(parsed.type.args) == 2)
+
+
+t2 = """
+
+char * foo;
+char * bar;
+
+void (*foo) ();
+void (*foo)(void);
+
+struct Foo {
+    int x;
+    int y;
+};
+
+struct Foo bar;
+
+"""
+
+def test_typeMatching1():
+    typeTable = types.TypeTable()
+    ast = astFromString(t2)
+ 
+    for i in range(3):
+        a,b = i*2,i*2+1
+        #print a,b
+        typea = types.parseTypeDecl(typeTable,ast.ext[a])
+        typeb = types.parseTypeDecl(typeTable,ast.ext[b])
+        assert(typea.strictTypeMatch(typeb))
+
+t3 = """
+
+char * foo;
+int * bar;
+
+void (*foo) (int);
+void (*foo)(void);
+
+struct Foo {
+    int x;
+    int y;
+};
+
+struct Bar bar;
+
+"""
+
+def test_typeMatching2():
+    typeTable = types.TypeTable()
+    ast = astFromString(t3)
+ 
+    for i in range(3):
+        a,b = i*2,i*2+1
+        #print a,b
+        typea = types.parseTypeDecl(typeTable,ast.ext[a])
+        typeb = types.parseTypeDecl(typeTable,ast.ext[b])
+        assert(typea.strictTypeMatch(typeb) == False)
+
+
