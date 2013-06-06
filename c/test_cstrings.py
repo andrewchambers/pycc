@@ -14,4 +14,13 @@ def test_stringparse():
     for s,parsed in tests:
         assert cstrings.parseCString(s) == parsed
 
+def test_charparse():
 
+    tests = [
+                (r"'a'",ord('a')),
+                (r"'\n'",ord('\n')),
+                (r"'\x00'", 0),
+                (r"'\xff'",255),
+            ]
+    for s,parsed in tests:
+        assert cstrings.parseCChar(s) == parsed

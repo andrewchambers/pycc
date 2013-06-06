@@ -4,7 +4,7 @@ import function
 import interference
 from vis import interferencevis
 
-
+#Refactor, make smaller
 class RegisterAllocator(object):
     
     def __init__(self,tgt):
@@ -36,9 +36,17 @@ class RegisterAllocator(object):
                     continue
                 interferes = ig.getInterferes(n)
                 interferes = set([allocations.get(x,x) for x in interferes ])
+                withRegOverlapInterferes = set()
+                for reg in interferes:
+                    withRegOverlapInterferes.add(reg)
+                    if reg.isPhysical():
+                        withRegOverlapInterferes.update(self.target.getInterferenceSet(reg))
+                print interferes
+                print  withRegOverlapInterferes
+                interferes = withRegOverlapInterferes
                 possibleregs = self.target.getPossibleRegisters(n)
                 possibleregs = filter(lambda x : x not in interferes ,possibleregs )
-                
+
                 if len(possibleregs):
                     possibleregs.sort(key=lambda x : x.name)
                     #print possibleregs

@@ -34,4 +34,6 @@ def parseCString(rawString):
     result += '\x00'
     return result
 
-#print parseCString('"hello..."')
+def parseCChar(rawString):
+    s = parseCString(rawString)
+    return ord(s[0])

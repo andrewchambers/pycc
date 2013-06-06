@@ -24,6 +24,11 @@ class I32(VirtualRegister):
     def getSize(self):
         return 4
 
+class I8(VirtualRegister):
+    
+    def getSize(self):
+        return 1
+
 class Pointer(VirtualRegister):
     
     def getSize(self):

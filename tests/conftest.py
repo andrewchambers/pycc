@@ -88,12 +88,12 @@ class GCCX86(TestConfiguration):
 
 class CCX86(TestConfiguration):
     configurationName = "cc noopt configuration"
-    compileCommand = "python ./cc.py {0} --output={1}"
+    compileCommand = "python ./cc1.py {0} --output={1}"
     assembleCommand = "gcc {0} -o {1}"
 
 class CCOPTX86(TestConfiguration):
     configurationName = "cc with opt configuration"
-    compileCommand = "python ./cc.py --iropt {0} --output={1}"
+    compileCommand = "python ./cc1.py --iropt {0} --output={1}"
     assembleCommand = "gcc {0} -o {1}"
 
 

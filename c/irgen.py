@@ -25,12 +25,18 @@ class GlobalSym(Symbol):
 class ParamSym(Symbol):
     def __init__(self,name,t):
         Symbol.__init__(self,name,t)
-        self.slot = function.StackSlot(t.getSize())
+        sz = t.getSize()
+        if sz % 4:
+            sz += 4 -(sz % 4)
+        self.slot = function.StackSlot(sz)
 
 class LocalSym(Symbol):
     def __init__(self,name,t):
         Symbol.__init__(self,name,t)
-        self.slot = function.StackSlot(t.getSize())
+        sz = t.getSize()
+        if sz % 4:
+            sz += 4 -(sz % 4)
+        self.slot = function.StackSlot(sz)
 
 
 class SymbolTable(object):
@@ -65,6 +71,32 @@ class IRGenerator(c_ast.NodeVisitor):
     def assertNonVoid(self,v):
         if type(v.type) == types.Void:
             raise Exception("value void!")
+
+    #corce the value in valtracker, into a
+    #useable instance of type t
+    #lvalueness isnt kept
+    def coerceType(self,v,t):
+        self.assertNonVoid(v)
+
+        if t.strictTypeMatch(v.type):
+            return v
+        
+        if v.lval:
+            v = self.genDeref(v)
+        newv = ValTracker(False,t.clone(),None)
+        newv.createVirtualReg()
+        if type(v.type) in [types.Struct,types.Pointer]:
+            raise Exception("XXX cannot coerce structs and arrays atm")
+        
+        if type(t) == types.Pointer and type(v.type) == types.Pointer:
+            newv.type = t.clone()
+        elif type(t) == types.Char and type(v.type) == types.Int:
+            self.curBasicBlock.append(ir.Unop('tr',newv.reg,v.reg))
+        elif type(t) == types.Int and type(v.type) == types.Char:
+            self.curBasicBlock.append(ir.Unop('sx',newv.reg,v.reg))
+        else:
+            raise Exception("XXX unhandle coersion case %s %s"%(v.type,t))
+        return newv
 
     def visit_FileAST(self,ast):
         
@@ -429,9 +461,9 @@ class IRGenerator(c_ast.NodeVisitor):
             return v
         elif const.type == 'char':
             t = self.typeTab.lookupType('char')
-            v = ValTracker(False,types.Pointer(t),None)
+            v = ValTracker(False,t,None)
             v.createVirtualReg()
-            const = ir.ConstantI8(const.value)
+            const = ir.ConstantI8(cstrings.parseCChar(const.value))
             op = ir.LoadConstant(v.reg,const)
             self.curBasicBlock.append(op)
             return v
@@ -448,7 +480,7 @@ class IRGenerator(c_ast.NodeVisitor):
             val = self.inFunctionDispatch(ret.expr)
             self.assertNonVoid(val)
             if not val.type.strictTypeMatch(self.curFunctionType.rettype):
-                raise Exception("bad return type!") 
+                val = self.coerceType(val,self.curFunctionType.rettype)
 
             if val.lval:
                 val = self.genDeref(val)
@@ -570,8 +602,10 @@ class IRGenerator(c_ast.NodeVisitor):
             if lv.lval:
                 lv = self.genDeref(lv)
             
+            if not lv.type.strictTypeMatch(rv.type):
+                rv = self.coerceType(rv,lv.type)
             
-            ret = ValTracker(False,types.Int(),None)
+            ret = ValTracker(False,lv.type.clone(),None)
             ret.createVirtualReg()
             self.curBasicBlock.append(ir.Binop(node.op,ret.reg,lv.reg,rv.reg))
             return ret
@@ -598,13 +632,13 @@ class IRGenerator(c_ast.NodeVisitor):
     def visit_ArrayRef(self,node):
         v = self.inFunctionDispatch(node.name)
         self.assertNonVoid(v)
+        
+        idx = self.inFunctionDispatch(node.subscript)
+        self.assertNonVoid(idx)
+        if idx.lval:
+            idx = self.genDeref(idx)
+        
         if type(v.type) == types.Array:
-            
-            idx = self.inFunctionDispatch(node.subscript)
-            self.assertNonVoid(idx)
-            if idx.lval:
-                idx = self.genDeref(idx)
-            
             ret = v.index()
             
             const = ir.I32()
@@ -614,7 +648,20 @@ class IRGenerator(c_ast.NodeVisitor):
             self.curBasicBlock.append(ir.Binop('*',offset,idx.reg,const))
             self.curBasicBlock.append(ir.Binop('+',ret.reg,v.reg,offset))
             return ret
+        elif type(v.type) == types.Pointer:
+            if v.lval:
+               v = self.genDeref(v)
+            ret = v.deref()
+            ret.lval = True
+            ret.createVirtualReg()
+            const = ir.I32()
+            offset = ir.I32() #XXX
             
+            self.curBasicBlock.append(ir.LoadConstant(const,ir.ConstantI32(ret.type.getSize())))
+            self.curBasicBlock.append(ir.Binop('*',offset,idx.reg,const))
+            self.curBasicBlock.append(ir.Binop('+',ret.reg,v.reg,offset))
+            return ret
+ 
         else:
             raise Exception("cannot perform an array index on %s %s" % (node,v.type))
     

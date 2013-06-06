@@ -120,7 +120,8 @@ class StandardMachine(target.Target):
         for block in linear:
             ofile.write("." + block.name + ':\n')
             for instr in block:
-                ofile.write("\t" + instr.asm() + '\n')
+                for line in instr.asm().split("\n"):
+                    ofile.write("\t" + line + '\n')
     
     def calleeSaveRegisters(self,func,ig):
         #ig interference graph

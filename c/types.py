@@ -193,7 +193,7 @@ class Char(Type):
         return 1
         
     def createVirtualReg(self):
-        return ir.I32()
+        return ir.I8()
     
     def clone(self):
         return Char()
