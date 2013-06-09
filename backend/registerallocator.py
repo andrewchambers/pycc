@@ -41,8 +41,8 @@ class RegisterAllocator(object):
                     withRegOverlapInterferes.add(reg)
                     if reg.isPhysical():
                         withRegOverlapInterferes.update(self.target.getInterferenceSet(reg))
-                print interferes
-                print  withRegOverlapInterferes
+                #print interferes
+                #print  withRegOverlapInterferes
                 interferes = withRegOverlapInterferes
                 possibleregs = self.target.getPossibleRegisters(n)
                 possibleregs = filter(lambda x : x not in interferes ,possibleregs )

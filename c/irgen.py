@@ -136,13 +136,14 @@ class IRGenerator(c_ast.NodeVisitor):
 
     def visit_Decl(self,decl):
         t = types.parseTypeDecl(self.typeTab,decl.type)
-        if self.isGlobalScope():
+        isstaticvar = 'static' in decl.storage
+        if self.isGlobalScope() or isstaticvar:
             sym = GlobalSym(decl.name,t)
         else:
             sym = LocalSym(decl.name,t)
             self.curFunction.addStackSlot(sym.slot)
         self.symTab.addSymbol(sym)
-        if not self.isGlobalScope():
+        if not self.isGlobalScope() and not isstaticvar:
             if decl.init:
                 if type(decl.type) == c_ast.ArrayDecl:
                     raise Exception("cannot currently handle Array initializers")
@@ -285,10 +286,8 @@ class IRGenerator(c_ast.NodeVisitor):
             nextblock = basicblock.BasicBlock()
             self.labelTable[node.name] = nextblock
         
-        
         if prevblock.unsafeEnding():
             prevblock.append(ir.Jmp(nextblock))
-            
             
         self.curBasicBlock = nextblock
         
@@ -313,7 +312,11 @@ class IRGenerator(c_ast.NodeVisitor):
                 if finalArg.lval:
                     finalArg = self.genDeref(finalArg)
                 finalArgs.append(finalArg)
-            
+        else:
+            if len(funcType.args) != 0:
+                raise Exception(("calling function %s with no args when it" \
+                        + " requires args") % funcSym.name)
+
         retType = funcType.rettype.clone()
         retV = ValTracker(False,retType,None)
         retV.createVirtualReg()
