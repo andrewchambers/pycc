@@ -6,6 +6,8 @@ from backend import machineinstruction
 from backend.instructionselector import *
 from backend.selectiondag import *
 
+from templates import templtab
+
 #used for small assembly snippets
 #that need to branch that dont currently
 #introduce a basic block
@@ -521,7 +523,6 @@ class X86StackSaveI32(machineinstruction.MI):
 
 
 matchableInstructions = [
-    X86AddI32,
     X86SubI32,
     X86SHLI32,
     X86SHRI32,
@@ -549,14 +550,16 @@ matchableInstructions = [
 #   X86PushI32,
 ]
 
+class GR32(standardmachine.Register):
+    pass
 
 registers = [
-    standardmachine.Register('eax',[ir.I32,ir.Pointer]),
-    standardmachine.Register('ebx',[ir.I32,ir.Pointer]),
-    standardmachine.Register('ecx',[ir.I32,ir.Pointer]),
-    standardmachine.Register('edx',[ir.I32,ir.Pointer]),
-    standardmachine.Register('edi',[ir.I32,ir.Pointer]),
-    standardmachine.Register('esi',[ir.I32,ir.Pointer]),
+    GR32('eax',[ir.I32,ir.Pointer]),
+    GR32('ebx',[ir.I32,ir.Pointer]),
+    GR32('ecx',[ir.I32,ir.Pointer]),
+    GR32('edx',[ir.I32,ir.Pointer]),
+    GR32('edi',[ir.I32,ir.Pointer]),
+    GR32('esi',[ir.I32,ir.Pointer]),
     standardmachine.Register('al',[ir.I8]),
     standardmachine.Register('bl',[ir.I8]),
     standardmachine.Register('cl',[ir.I8]),
@@ -591,6 +594,8 @@ for k in interferes:
 #need to separate responsibilities
 
 class X86(standardmachine.StandardMachine):
+    
+    templates = templtab
     
     def getInterferenceSet(self,reg):
         return interferes.get(reg.name,set([]))

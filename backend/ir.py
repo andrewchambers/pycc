@@ -53,7 +53,21 @@ class Instruction(object):
         self.assigned = []
         self.read = []
         self.successors = []
-    
+        
+    def getTemplateLookupStr(self):
+        classname = self.__class__.__name__
+        try:
+            op = self.op
+        except:
+            op = ''
+        
+        ass = reduce(lambda x,y : x + y.__class__.__name__,self.assigned,'')
+        read = reduce(lambda x,y : x + y.__class__.__name__,self.read,'')
+        ret = classname + ' ' + op + ' ' + ass
+        if len(read) != 0:
+            ret +=  "_" + read
+        return ret
+        
     def getDagDisplayText(self):
         return self.__class__.__name__
         
@@ -99,7 +113,8 @@ class Instruction(object):
     
     def writesMem(self):
         return False
-        
+    
+    #is Machine Dependant, i.e. Not an ir instruction
     def isMD(self):
         return False
     

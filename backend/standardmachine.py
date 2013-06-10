@@ -120,9 +120,12 @@ class StandardMachine(target.Target):
         for block in linear:
             ofile.write("." + block.name + ':\n')
             for instr in block:
-                for line in instr.asm().split("\n"):
+                if instr.isMD():
+                    asmstr = instr.asm()
+                else:
+                    asmstr = self.templates[instr.getTemplateLookupStr()](instr)
+                for line in asmstr.split("\n"):
                     ofile.write("\t" + line + '\n')
-    
     def calleeSaveRegisters(self,func,ig):
         #ig interference graph
         for block in func:
