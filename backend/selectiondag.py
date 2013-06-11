@@ -1,7 +1,17 @@
 import ir
 import weakref
+import itertools
 
 
+class Identity(ir.Instruction):
+    def __init__(self,v):
+        ir.Instruction.__init__(self)
+        self.assigned = [v]
+
+class LiveOut(ir.Instruction):
+    def __init__(self,vs):
+        ir.Instruction.__init__(self)
+        self.read = vs
 
 
 class SDDataEdge(object):
@@ -20,7 +30,7 @@ class SDDataEdge(object):
 
     @head.setter
     def head(self, head):
-        self.head.var = None
+        head.edge = self
         self._head = head
         self.head.var = self.var
     
@@ -150,10 +160,10 @@ class SDNode(object):
 class SelectionDag(object):
     
     #this relies on SSA form to create a DAG
-    def __init__(self,block):
+    def __init__(self,block,liveout):
         
-        users = {}
         assigners = {}
+        read = set()
         
         lastWrite = None
         
@@ -169,13 +179,25 @@ class SelectionDag(object):
                     assigners[v] = []
                 assigners[v].append([node,idx])
             
+            for v in instr.read:
+                read.add(v)
+        
+        #assume notread variables are liveout
+        notread = set(assigners.keys()) - read
+        
+        #insert the liveout node
+        if len(liveout):
+            node = SDNode()
+            nodes.insert(-1,node)
+            instr = LiveOut(list(liveout) + list(notread))
+            node.instr = instr 
         
         for instr in block:
             for v in instr.read:
                 if v not in assigners:
                     assigners[v] = []
                     identity = SDNode()
-                    dummy = ir.Identity(v)
+                    dummy = Identity(v)
                     identity.instr = dummy
                     nodes.insert(0,identity) # we are relying on order
                     assigners[v].append([identity,0])
@@ -242,5 +264,36 @@ class SelectionDag(object):
         
         
         ret.append(node)
+    
+    #redirect all input nodes and output nodes to
+    #
+    def replace(self,instrcls,inports,outports):
+        assert(len(outports) == 1)
+        
+        inedges = map(lambda p : p.edge,inports)
+        outedges = []
+        for e in outports[0].edges:
+            outedges.append(e)
+        print outports
+        print 'outedges',outedges
+        
+        newnode = SDNode()
+        instr = instrcls()
+        instr.read = list(map(lambda e : e.var,inedges))
+        instr.assigned = list(map(lambda e : e.var,outedges))
+        newnode.instr = instr
+        
+
+        for idx,e in enumerate(inedges):
+            e.head = newnode.ins[idx]
+        
+        #for e in outedges:
+        #    e.tail = newnode.outs[0]
+        
+        print instr.read
+        print instr.assigned
+        print newnode.outs
+        print newnode.ins      
+        
     
 

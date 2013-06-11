@@ -12,8 +12,15 @@ def getAsmFunc(fname,templstr):
     return """
 def {0}(instr):
     args = instr.assigned + instr.read
-    return {1}.format(*args)
+    return \"\"\"{1}\"\"\".format(*args,instr=instr)
 """.format(fname,templstr)
+
+def getComplexFunc(fname,templstr):
+    return """
+def {0}(instr):
+    {1}
+""".format(fname,templstr)
+
 
 
 if __name__ == '__main__':
@@ -32,9 +39,13 @@ if __name__ == '__main__':
         if isAsmStr(templ[1]):
             print getAsmFunc(fname,templ[1])
         else:
-            raise Exception("XXX")
+            print getComplexFunc(fname,templ[1])
     
     print "templtab = {"
     for templ in templates:
-        print('    "{0}" : {1},'.format(templ[0],functions[templ]))
+        if type(templ[0]) != str:
+            for key in templ[0]:
+                print('    "{0}" : {1},'.format(key,functions[templ]))
+        else:
+            print('    "{0}" : {1},'.format(templ[0],functions[templ]))
     print "}"

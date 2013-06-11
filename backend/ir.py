@@ -57,16 +57,16 @@ class Instruction(object):
     def getTemplateLookupStr(self):
         classname = self.__class__.__name__
         try:
-            op = self.op
+            op = self.op + ' '
         except:
             op = ''
         
         ass = reduce(lambda x,y : x + y.__class__.__name__,self.assigned,'')
         read = reduce(lambda x,y : x + y.__class__.__name__,self.read,'')
-        ret = classname + ' ' + op + ' ' + ass
+        ret = classname + ' ' + op + ass
         if len(read) != 0:
             ret +=  "_" + read
-        return ret
+        return ret.strip()
         
     def getDagDisplayText(self):
         return self.__class__.__name__
@@ -92,7 +92,6 @@ class Instruction(object):
         for k,v in enumerate(self.assigned):
             if v is old:
                 self.assigned[k] = new
-    
     
     def asm(self):
         return "#%s" % str(self)
@@ -238,6 +237,10 @@ class Terminator(Instruction):
         return True
         
 class Ret(Terminator):
+    
+    def getTemplateLookupStr(self):
+        return 'Ret'    
+    
     def __init__(self,v=None):
         Terminator.__init__(self)
         if v != None:
@@ -266,11 +269,6 @@ class Jmp(Terminator):
         
     def __repr__(self):
         return "jmp %s" % self.successors[0]
-        
-class Identity(Instruction):
-    def __init__(self,v):
-        Instruction.__init__(self)
-        self.assigned = [v]
 
 class Phi(Instruction):
     def __init__(self,lhs,args):

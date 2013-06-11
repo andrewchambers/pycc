@@ -21,15 +21,14 @@ import ir
 import function
 
 class Register(object):
-    def __init__(self,name,sizes):
+    def __init__(self,name):
         self.name = name
-        self.sizes = set(sizes)
     
     def canContain(self,t):
         if type(t) == type(self):
             return True
         
-        if t in self.sizes:
+        if t in self.types:
             return True
         
         return False
@@ -54,7 +53,6 @@ class StandardMachine(target.Target):
         
         if self.args.show_all or self.args.show_postopt_function:
             irvis.showFunction(f)
-        
         
         self.doInstructionSelection(f)
         
@@ -106,26 +104,35 @@ class StandardMachine(target.Target):
                     continue
                 if target == linear[nextIdx]:
                     terminator.swapSuccessor(target,None)
-            
-            terminator = self.terminatorSelection(terminator)
-            if terminator == None:
-                del linear[idx][-1]
-            else:
-                linear[idx][-1] = terminator
         
         ofile.write(".text\n")
         ofile.write(".globl %s\n" % f.name)
-        ofile.write("%s:\n" % f.name)
+        
+        outasm = []
+        
+        outasm.append("%s:" % f.name)
         
         for block in linear:
-            ofile.write("." + block.name + ':\n')
+            outasm.append("." + block.name + ':')
             for instr in block:
                 if instr.isMD():
                     asmstr = instr.asm()
                 else:
                     asmstr = self.templates[instr.getTemplateLookupStr()](instr)
                 for line in asmstr.split("\n"):
-                    ofile.write("\t" + line + '\n')
+                    outasm.append(line)
+        
+        outasm = list(map(lambda x : x.strip(),outasm))
+
+        for asmstr in outasm:
+            prefix = ''
+            if asmstr.endswith(':'):
+                if asmstr.startswith('.'):
+                    prefix = '  '
+            else:
+                prefix = '    '
+            ofile.write(prefix + asmstr + '\n')
+        
     def calleeSaveRegisters(self,func,ig):
         #ig interference graph
         for block in func:
@@ -273,7 +280,22 @@ class StandardMachine(target.Target):
     
     def doInstructionSelection(self,func):
         for b in func:
-            sd = selectiondag.SelectionDag(b)
+            assigned = set()
+            liveout = set()
+            #XXX ugly code,move method somewhere?,  find vars that are used
+            #outside the current block that need an edge to liveout
+            for instr in b:
+                assigned.update(instr.assigned)
+                
+            for other in func:
+                if b != other:
+                    for otherinstr in other:
+                        for read in otherinstr.read:
+                            if read in assigned:
+                                liveout.add(read)
+                                
+            sd = selectiondag.SelectionDag(b,liveout)
+            
             isel = instructionselector.InstructionSelector()
             if self.args.show_all or self.args.show_selection_dag:
                 dagvis.showSelDAG(sd)
@@ -283,7 +305,7 @@ class StandardMachine(target.Target):
             isel.select(self,sd)
             if self.args.show_all or self.args.show_md_selection_dag:
                 dagvis.showSelDAG(sd)
-            newblockops = [node.instr for node in sd.ordered() if type(node.instr) != ir.Identity]
+            newblockops = [node.instr for node in sd.ordered() if type(node.instr) not in [selectiondag.Identity,selectiondag.LiveOut]]
             b.opcodes = newblockops
     
     def branchSelection(self,instr):
@@ -319,7 +341,7 @@ class StandardMachine(target.Target):
                 epilog = self.getEpilog(stackSize)
                 for instr in epilog:
                     b.insert(-1,instr)
-        
+       
     def getEpilog(self,stackSize):
         raise Exception("unimplemented")
     

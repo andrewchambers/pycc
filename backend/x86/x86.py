@@ -8,6 +8,9 @@ from backend.selectiondag import *
 
 from templates import templtab
 
+import x86md
+
+
 #used for small assembly snippets
 #that need to branch that dont currently
 #introduce a basic block
@@ -103,13 +106,13 @@ class X86NotI32(X86BasicUnopI32):
     
     def asm(self):
         if self.read[0] == self.assigned[0]:
-            ret =  "subl $1,%{0}; adcl %{0},%{0}; andl $1,%{0}"
+            ret =  "subl $1,%{0}\nadcl %{0},%{0}\nandl $1,%{0}"
             return ret.format(self.assigned[0])
         else:
             o = self.assigned[0]
-            ret = "movl %{1},%{0}; " + \
-                  "addl $-1,%{1}; " + \
-                  "sbbl %{1},%{0};"
+            ret = "movl %{1},%{0}\n " + \
+                  "addl $-1,%{1}\n " + \
+                  "sbbl %{1},%{0}\n"
             return ret.format(self.assigned[0],self.read[0])
              
         
@@ -128,7 +131,7 @@ class X86IDivI32(X86BasicBinopI32):
         return [getRegisterByName('edx')]
     
     def asm(self):
-        return "cdq; idiv %%%s"%(self.read[1])
+        return "cdq\nidiv %%%s"%(self.read[1])
 
 class X86IModI32(X86BasicBinopI32):
     op = '%'
@@ -137,7 +140,7 @@ class X86IModI32(X86BasicBinopI32):
         return [getRegisterByName('edx')]
     
     def asm(self):
-        return "cdq; idiv %%%s"%(self.read[1])
+        return "cdq\nidiv %%%s"%(self.read[1])
 
 
 class X86SubI32(X86BasicBinopI32):
@@ -305,7 +308,7 @@ class X86LoadLocalAddr(machineinstruction.MI):
             offsetStr = "XXX"
         else:
             offsetStr = str( (offset) ) 
-        return "mov %%ebp, %%%s; sub $%s, %%%s"%(r,offsetStr,r)
+        return "mov %%ebp, %%%s\nsub $%s, %%%s"%(r,offsetStr,r)
 
 
 class X86LoadGlobalAddr(machineinstruction.MI):
@@ -357,7 +360,7 @@ class X86LoadParamAddr(machineinstruction.MI):
             offsetStr = "XXX"
         else:
             offsetStr = str( ( 8 + offset) ) 
-        return "mov %%ebp, %%%s; add $%s, %%%s"%(r,offsetStr,r)
+        return "mov %%ebp, %%%s\nadd $%s, %%%s"%(r,offsetStr,r)
 
 
 
@@ -423,32 +426,9 @@ class X86PushI32(machineinstruction.MI):
     def asm(self):
         return "push %%%s"%(self.read[0])
 
-
-        
-class X86Jmp(machineinstruction.MI):
-    
-    def asm(self):
-        return "jmp .%s"%(self.getSuccessors()[0].name)
-
-
-class X86Branch(machineinstruction.MI):
-    
-    def asm(self):
-        
-        if self.successors[0] != None and self.successors[1] == None:
-            return "test %%%s,%%%s; jnz .%s"%(self.read[0],self.read[0],self.successors[0])
-        elif self.successors[0] == None and self.successors[1] != None:
-            return "test %%%s,%%%s; jz .%s"%(self.read[0],self.read[0],self.successors[1])
-        else:
-            return "test %%%s,%%%s; jnz .%s; jmp .%s"%(self.read[0],self.read[0],self.successors[0],self.successors[1])
-
 class X86Nop(machineinstruction.MI):
     def asm(self):
         return "nop"
-
-class X86Ret(machineinstruction.MI):
-    def asm(self):
-        return "ret"
 
 class X86Call(machineinstruction.MI):
     def __init__(self,label):
@@ -466,9 +446,9 @@ class X86Enter(machineinstruction.MI):
         machineinstruction.MI.__init__(self)
         self.stackSize = stackSize
     def asm(self):
-        ret = "pushl %ebp; movl %esp,%ebp;"
+        ret = "pushl %ebp\nmovl %esp,%ebp"
         if self.stackSize:
-              ret += "subl $%s,%%esp;" % self.stackSize
+              ret += "\nsubl $%s,%%esp" % self.stackSize
         return ret
 
 class X86Leave(machineinstruction.MI):
@@ -477,10 +457,10 @@ class X86Leave(machineinstruction.MI):
         self.stackSize = stackSize
     def asm(self):
         if self.stackSize:
-            ret = "addl $%s,%%esp;"% self.stackSize
+            ret = "addl $%s,%%esp\n"% self.stackSize
         else:
             ret = ""
-        ret += "popl %ebp;" 
+        ret += "popl %ebp" 
         return ret
 
 class X86StackFree(machineinstruction.MI):
@@ -499,9 +479,9 @@ class X86StackLoadI32(machineinstruction.MI):
     def asm(self):
         
         if self.slot.offset != None:
-            return "mov -%d(%%ebp), %%%s "%(self.slot.offset,self.assigned[0])
+            return "mov -%d(%%ebp), %%%s"%(self.slot.offset,self.assigned[0])
         else:
-            return "mov -XXX(%%ebp), %%%s "%(self.assigned[0])
+            return "mov -XXX(%%ebp), %%%s"%(self.assigned[0])
     
         
         
@@ -532,11 +512,9 @@ matchableInstructions = [
     X86AndI32,
     X86XorI32,
     X86OrI32,
-    X86Mov,
     X86Load,
     X86LoadConstant,
     X86LoadParamAddr,
-    X86LoadLocalAddr,
     X86LoadGlobalAddr,
     #X86StoreLocalI32,
     X86Store,
@@ -548,24 +526,26 @@ matchableInstructions = [
     X86Sext,
     X86Zext,
 #   X86PushI32,
-]
+]# + x86md.matchableInstructions
 
 class GR32(standardmachine.Register):
-    pass
+    types = [ir.I32,ir.Pointer]
+    
+class GR8(standardmachine.Register):
+    types = [ir.I8]
 
 registers = [
-    GR32('eax',[ir.I32,ir.Pointer]),
-    GR32('ebx',[ir.I32,ir.Pointer]),
-    GR32('ecx',[ir.I32,ir.Pointer]),
-    GR32('edx',[ir.I32,ir.Pointer]),
-    GR32('edi',[ir.I32,ir.Pointer]),
-    GR32('esi',[ir.I32,ir.Pointer]),
-    standardmachine.Register('al',[ir.I8]),
-    standardmachine.Register('bl',[ir.I8]),
-    standardmachine.Register('cl',[ir.I8]),
-    standardmachine.Register('ah',[ir.I8]),
-    standardmachine.Register('bh',[ir.I8]),
-    standardmachine.Register('ch',[ir.I8]),
+    GR32('eax',),
+    GR32('ebx'),
+    GR32('ecx'),
+    GR32('edx'),
+    GR32('edi'),
+    GR8('al'),
+    GR8('bl'),
+    GR8('cl'),
+    GR8('ah'),
+    GR8('bh'),
+    GR8('ch'),
 ]
 
 interferes = {
@@ -782,33 +762,6 @@ class X86(standardmachine.StandardMachine):
             raise Exception("unsupported load register type %s" % reg)
         
     
-    def terminatorSelection(self,instr):
-        
-        if type(instr) == ir.Jmp:
-            
-            next = instr.getSuccessors()[0]
-            if next == None:
-                return None
-            newJump = X86Jmp()
-            newJump.setSuccessors(instr.getSuccessors())
-            return newJump
-            
-            
-        elif type(instr) == ir.Branch:
-            
-            trueBlock,falseBlock = instr.getSuccessors()
-            if trueBlock == None and falseBlock == None:
-                return None
-            
-            newBranch = X86Branch()
-            newBranch.setSuccessors(instr.getSuccessors())
-            newBranch.read = instr.read
-            return newBranch
-        
-        elif type(instr) == ir.Ret:
-            return X86Ret()
-        else:
-            raise Exception("unreachable branch selection - %s" % instr)
             
 
 
