@@ -206,11 +206,13 @@ def parsePattern(tree):
     print "    def match(cls,dag,node):"
     print "        nodestack = [node]"
     print "        newchildren = []"
+    print "        newcontroldeps = set()"
     print "        newins = []"
     parseHeadNodeMatch(True,tree[1])
     print "        node.instr = cls(node)"
     print "        node.instr.assigned = out"
     print "        node.children = newchildren"
+    print "        node.control = list(newcontroldeps)"
     print "        node.instr.read = newins"
     print "        return True"
 
@@ -231,6 +233,8 @@ def parseHeadNodeMatch(isTopLevel,node):
     
     print "        if len(nodestack[-1].instr.assigned) != %s:" % nreturns
     print "            return False"
+    
+    print "        newcontroldeps.update(nodestack[-1].control)"
     
     if isTopLevel == False:
         print "        #we cant match instructions whose intermediate is needed elsewhere"

@@ -185,12 +185,21 @@ class X86(standardmachine.StandardMachine):
                 # -------
                 #copy a,b
                 #add a,a,c
-                a,b = n.instr.assigned[0],n.instr.read[0]
-                copy = seldag.Node(ir.Move(a,b))
-                n.instr.read[0] = a
-                copy.children.append(n.children[0])
-                n.children[0] = (0,copy)
                 
+                if True:#len(n.children[0][1].parents) > 1:
+                    a,b = n.instr.assigned[0],n.instr.read[0]
+                    copy = seldag.Node(ir.Move(a,b))
+                    n.instr.read[0] = a
+                    copy.children.append(n.children[0])
+                    n.children[0] = (0,copy)
+                elif len(n.children[0][1].parents) == 1:
+                    n.instr.read[0] = n.instr.assigned[0]
+                    n.children[0][1].instr.assigned[0] = n.instr.assigned[0] 
+                else:
+                    raise Exception("bug! unreachable!")
+        
+        dag.recalculateParents()
+        dag.sanityCheck()
     
     def blockFixups(self,block):
         self.muldivFixups(block)
@@ -297,7 +306,7 @@ class X86(standardmachine.StandardMachine):
     def getCopyInstruction(self,toReg,fromReg):
         
         if type(fromReg) in [ir.Pointer,ir.I32,ir.I8]:
-            ret = x86md.X86Mov()
+            ret = x86md.X86Mov(None)
             ret.read = [fromReg]
             ret.assigned = [toReg]
             return ret
@@ -328,13 +337,13 @@ class X86(standardmachine.StandardMachine):
         return registers
     
     def getSaveRegisterInstruction(self,reg,ss):
-        if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.ir.I32):
+        if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.I32):
             return X86StackSaveI32(reg,ss)
         else:
             raise Exception("unsupported save register type %s" % reg)
         
     def getLoadRegisterInstruction(self,reg,ss):
-        if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.ir.I32):
+        if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.I32):
             return X86StackLoadI32(reg,ss)
         else:
             raise Exception("unsupported load register type %s" % reg)

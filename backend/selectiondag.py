@@ -91,11 +91,11 @@ class SelectionDag(object):
         
         self.root = nodes[-1]
         
-        self._setParents()
+        self.recalculateParents()
         
     
     #set all the parents
-    def _setParents(self):
+    def recalculateParents(self):
         nodes = self.nodes
         
         for n in nodes:

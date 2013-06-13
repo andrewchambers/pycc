@@ -3,6 +3,7 @@ import itertools
 import function
 import interference
 from vis import interferencevis
+from vis import irvis
 
 #Refactor, make smaller
 class RegisterAllocator(object):
@@ -10,124 +11,142 @@ class RegisterAllocator(object):
     def __init__(self,tgt):
         self.target = tgt
     
+
+    
     def allocate(self,f):
         
-        spilled = True
-        while spilled:
-            spilled = False
-            ig = interference.InterferenceGraph(f)
+        while True:
+            ig = self.build(f)
+            if self.coalesce(f,ig):
+                continue
+            
             #interferencevis.showInterferenceGraph(ig)
-            allocations = {}
-            nodes = list(ig.nodes)
-            degrees = {}
             
+            var = self.color(f,ig)
+            if var != None:
+                print("REGISTER ALLOCATOR:  spilling ",var)
+                self.spill(f,var)
+                continue
             
-            for v in nodes:
-                degree = 0
-                for edge in ig.interference:
-                    if v in edge:
-                        degree += 1
-                degrees[v] = degree
-            
-            nodes.sort(key=lambda n : degrees[n])
-            
-            for n in nodes:
-                if n.isPhysical():
-                    continue
-                interferes = ig.getInterferes(n)
-                interferes = set([allocations.get(x,x) for x in interferes ])
-                withRegOverlapInterferes = set()
-                for reg in interferes:
-                    withRegOverlapInterferes.add(reg)
-                    if reg.isPhysical():
-                        withRegOverlapInterferes.update(self.target.getInterferenceSet(reg))
-                #print interferes
-                #print  withRegOverlapInterferes
-                interferes = withRegOverlapInterferes
-                possibleregs = self.target.getPossibleRegisters(n)
-                possibleregs = filter(lambda x : x not in interferes ,possibleregs )
-
-                if len(possibleregs):
-                    possibleregs.sort(key=lambda x : x.name)
-                    #print possibleregs
-                    allocations[n] = possibleregs.pop()
-                else:
-                    #print '-----------------'
-                    #print allocations
-                    #print '-----------------'
-                    for b in f:
-                        for i in b:
-                            for v in allocations:
-                                i.swapVar(v,allocations[v])
-                    print("failed to allocate a register for %s" % n)
-                    self.spill(f,n)
-                    spilled = True
-                    break
-        #print '-----------------'
-        #print allocations
-        #print '-----------------'
-        
-        for b in f:
-            for i in b:
-                for v in allocations:
-                    i.swapVar(v,allocations[v])
+            break
         
     
-    def spill(self,f,virt):
-
-            #XXX get the correct size...
-            varSlot = f.createAndAddSpillSlot(4)
-            backupSlot = f.createAndAddSpillSlot(4)
-
+    def build(self,f):
+        return interference.InterferenceGraph(f)
+    
+    def coalesce(self,f,ig):
+        for b in f:
+            for instr in b:
+                if instr.isMove():
+                    r1,r2 = instr.read[0],instr.assigned[0]
+                    if r1.isPhysical() == False:
+                        if r1 != r2:
+                            if r2 not in ig.getInterferes(r1):
+                                print 'REGISTER ALLOCATOR: coalacing',r1,r2
+                                self.replace(f,r1,r2)
+                                return True
+        return False
+        
+    def color(self,f,ig):
+        
+        stack = []
+        coloring = {}
+        tocolor = filter(lambda x : not x.isPhysical(), f.variables)
+        tocolor = sorted(tocolor,key= lambda x : -len(ig.getInterferes(x)))
+        removed = set()
+        #XXX
+        for v in tocolor:
+            print "REGISTER ALLOCATOR: ",v
+            interference = ig.getInterferes(v)
+            possibleRegs = self.target.getPossibleRegisters(v)
+            possibleRegs = set(possibleRegs) - set(filter(lambda x : x.isPhysical(),interference))
+            overlappingRegSets = map(lambda x : self.target.getInterferenceSet(x),possibleRegs)
+            overlappingRegs = set()
+            for rs in overlappingRegSets:
+                overlappingRegs.update(rs)
             
-            for b in f:
-                idx = 0
-                while idx < len(b):
-                    instr = b[idx]
-                    before = []
-                    after = []
-                    
-                    allocated = set(filter(lambda x : x.isPhysical(), instr.read + instr.assigned))
-                    #XXX these sets have non deterministic iterators
-                    
-                    
-                    if virt in instr.read and virt in instr.assigned:
-                        #print instr
-                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
-                        instr.swapVar(virt,reg)
-                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
-                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
-                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
-                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
-                    elif virt in instr.read:
-                        #print instr
-                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
-                        instr.swapVar(virt,reg)
-                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
-                        before.append(self.target.getLoadRegisterInstruction(reg,varSlot))
-                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
-                        allocated.add(reg)
-                    elif virt in instr.assigned:
-                        #print instr
-                        reg = (set(self.target.getPossibleRegisters(virt)) - allocated).pop()
-                        instr.swapVar(virt,reg)
-                        before.append(self.target.getSaveRegisterInstruction(reg,backupSlot))
-                        after.append(self.target.getSaveRegisterInstruction(reg,varSlot))
-                        after.append(self.target.getLoadRegisterInstruction(reg,backupSlot))
-                    
-                    
-                    for spillinstr in before:
-                        b.insert(idx,spillinstr)
-                        idx += 1
-                    
-                    for spillinstr in after:
-                        b.insert(idx + 1,spillinstr)
-                        idx += 1
-                    
-                    
-                    idx += 1
+            possibleRegs = set(possibleRegs) - overlappingRegs - set(map(lambda x : coloring.get(x,None),interference))
+            
+            print "REGISTER ALLOCATOR: ",possibleRegs
+            
+            if len(possibleRegs) == 0:
+                return tocolor[0]
+            
+            coloring[v] = sorted(possibleRegs,key = lambda x : x.name)[0]
+        
+        print coloring
+        self.applyColoring(f,coloring)
+        return None
+    
+    def verifyColoring(self,f,coloring):
+        ig = self.build(f)
+        for v in f.variables:
+            if v.isPhysical() == False:
+                assert(v in coloring)
+            
+        for v in f.variables:
+            if v.isPhysical() == False:
+                for other in ig.getInterferes(v):
+                    if other.isPhysical():
+                        otherphys = other
+                    else:
+                        otherphys = coloring[other]
+                    assert(coloring[v] != otherphys) 
+                    assert(otherphys not in self.target.getInterferenceSet(coloring[v]))
+    
+    def applyColoring(self,f,coloring):
+        self.verifyColoring(f,coloring)
+        for b in f:
+            for instr in b:
+                for k in coloring:
+                    instr.swapVar(k,coloring[k])
+    
+    #replace r1 with r2 in func f
+    def replace(self,f,r1,r2):                
+        for b in f:
+            for instr in b:
+                instr.swapVar(r1,r2)
+        
+    def spill(self,f,virt):
+        #irvis.showFunction(f)
+        #XXX get the correct size...
+        varSlot = f.createAndAddSpillSlot(4)
 
         
+        for b in f:
+            idx = 0
+            while idx < len(b):
+                instr = b[idx]
+                before = []
+                after = []
+                #print virt.__class__
+                if virt in instr.read and virt in instr.assigned:
+                    replacement = virt.__class__()
+                    before.append(self.target.getLoadRegisterInstruction(replacement,varSlot))
+                    after.append(self.target.getSaveRegisterInstruction(replacement,varSlot))
+                    instr.swapVar(virt,replacement)
+                elif virt in instr.read:
+                    #print instr
+                    replacement = virt.__class__()
+                    before.append(self.target.getLoadRegisterInstruction(replacement,varSlot))
+                    instr.swapVar(virt,replacement)
+                elif virt in instr.assigned:
+                    replacement = virt.__class__()
+                    after.append(self.target.getSaveRegisterInstruction(replacement,varSlot))
+                    instr.swapVar(virt,replacement)
+                
+                for spillinstr in before:
+                    b.insert(idx,spillinstr)
+                    idx += 1
+                
+                for spillinstr in after:
+                    b.insert(idx + 1,spillinstr)
+                    idx += 1
+                
+                
+                idx += 1
+
+        #irvis.showFunction(f)
         
         
         

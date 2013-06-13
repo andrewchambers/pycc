@@ -62,9 +62,6 @@ class StandardMachine(target.Target):
         for block in f:
             self.blockFixups(block)
         
-        for block in f:
-            self.fixBranchRegisters(block)
-        
         self.removePhiNodes(f)
         
         if self.args.show_all or self.args.show_md_function_preallocation:
@@ -74,10 +71,11 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_interference:
             interferencevis.showInterferenceGraph(ig)
         
-        self.calleeSaveRegisters(f,ig)
-        
         ra = registerallocator.RegisterAllocator(self)
         ra.allocate(f)
+        
+        ig = interference.InterferenceGraph(f)
+        self.calleeSaveRegisters(f,ig)
         
         f.resolveStack()
         
@@ -161,13 +159,6 @@ class StandardMachine(target.Target):
                         idx += 1
                 idx += 1
     
-    def fixBranchRegisters(self,block):
-        if type(block[-1]) == ir.Branch:
-            reg = self.getPossibleRegisters(block[-1].read[0])[0]
-            copy = self.getCopyInstruction(reg,block[-1].read[0])
-            block[-1].read[0] = reg
-            block.insert(-1,copy)
-            
     
     def dagFixups(self,dag):
         raise Exception("unimplemented")

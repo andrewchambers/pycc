@@ -11,9 +11,11 @@ class X86Add(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr) != ir.Binop:
             return False
@@ -38,6 +40,7 @@ class X86Add(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "add %{2},%{0}"
@@ -51,9 +54,11 @@ class X86Sub(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr) != ir.Binop:
             return False
@@ -78,6 +83,7 @@ class X86Sub(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "sub %{2},%{0}"
@@ -91,9 +97,11 @@ class X86SHLI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -124,6 +132,7 @@ class X86SHLI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "shl %cl,%{0}"
@@ -137,9 +146,11 @@ class X86SHRI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -170,6 +181,7 @@ class X86SHRI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "shr %cl,%{0}"
@@ -183,9 +195,11 @@ class X86IMulI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -216,6 +230,7 @@ class X86IMulI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "mul %{3}"
@@ -229,9 +244,11 @@ class X86IDivI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -262,6 +279,7 @@ class X86IDivI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "cdq\nidiv %{3}"
@@ -279,9 +297,11 @@ class X86IModI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -312,6 +332,7 @@ class X86IModI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "cdq\nidiv %{3}"
@@ -329,9 +350,11 @@ class X86NotI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -352,6 +375,7 @@ class X86NotI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     def asm(self):
@@ -376,9 +400,11 @@ class X86Mov(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr) != ir.Move:
             return False
@@ -393,6 +419,7 @@ class X86Mov(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "mov %{1},%{0}"
@@ -404,15 +431,17 @@ class X86Mov(machineinstruction.MI):
         machineinstruction.MI.__init__(self)
         pass
 
-#['instr', 'X86NeI32', ['pattern', ['I32', 'Binop', '"!="', ['I32'], ['I32']]], ['asmstr', '"cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"'], ['extra', '"    jmpinstr = \'jne\'"'], ['constructor', '"        \n        self.branch = x86.newLocalLabel()\n        self.exit = x86.newLocalLabel()\n        "']]
+#['instr', 'X86NeI32', ['pattern', ['I32', 'Binop', '"!="', ['I32'], ['I32']]], ['asmstr', '"cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"'], ['extra', '"    jmpinstr = \'jne\'"'], ['constructor', '"        \n        self.branch = x86.newLocalLabel()\n        self.exit = x86.newLocalLabel()\n        "'], ['extra', '"\n    def __repr__(self):\n        return \'fooo\'\n    "']]
 class X86NeI32(machineinstruction.MI):
     @classmethod
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -443,6 +472,7 @@ class X86NeI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"
@@ -454,15 +484,21 @@ class X86NeI32(machineinstruction.MI):
         self.exit = x86.newLocalLabel()
         
 
-#['instr', 'X86LtI32', ['pattern', ['I32', 'Binop', '"<"', ['I32'], ['I32']]], ['asmstr', '"cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"'], ['extra', '"    jmpinstr = \'jl\'"'], ['constructor', '"        \n        self.branch = x86.newLocalLabel()\n        self.exit = x86.newLocalLabel()\n        "']]
+    def __repr__(self):
+        return 'fooo'
+    
+
+#['instr', 'X86LtI32', ['pattern', ['I32', 'Binop', '"<"', ['I32'], ['I32']]], ['asmstr', '"cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"'], ['extra', '"    jmpinstr = \'jl\'"'], ['constructor', '"        \n        self.branch = x86.newLocalLabel()\n        self.exit = x86.newLocalLabel()\n        "'], ['extra', '"\n    def __repr__(self):\n        return \'fooo\'\n    "']]
 class X86LtI32(machineinstruction.MI):
     @classmethod
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -493,6 +529,7 @@ class X86LtI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"
@@ -504,15 +541,21 @@ class X86LtI32(machineinstruction.MI):
         self.exit = x86.newLocalLabel()
         
 
+    def __repr__(self):
+        return 'fooo'
+    
+
 #['instr', 'X86GtI32', ['pattern', ['I32', 'Binop', '">"', ['I32'], ['I32']]], ['asmstr', '"cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"'], ['extra', '"    jmpinstr = \'jg\'"'], ['constructor', '"        \n        self.branch = x86.newLocalLabel()\n        self.exit = x86.newLocalLabel()\n        "']]
 class X86GtI32(machineinstruction.MI):
     @classmethod
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -543,6 +586,7 @@ class X86GtI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"
@@ -560,9 +604,11 @@ class X86EqI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -593,6 +639,7 @@ class X86EqI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "cmp %{2},%{1}\n        {instr.jmpinstr} {instr.branch}\n        xor %{0},%{0}\n        jmp {instr.exit}\n        {instr.branch}:\n        xor %{0},%{0}\n        inc %{0}\n        {instr.exit}:"
@@ -604,15 +651,73 @@ class X86EqI32(machineinstruction.MI):
         self.exit = x86.newLocalLabel()
         
 
+#['instr', 'X86LoadLocalI32', ['pattern', [['I32'], 'Deref', ['Pointer', 'LoadLocalAddr']]], ['asmstr', '"        \n        r = self.assigned[0]\n        offset = self.sym.slot.offset\n        if offset == None:\n            offsetStr = \'XXX\'\n        else:\n            assert(offset % 4 == 0)\n            offsetStr = str( (offset) ) \n        return \'mov -{0}(%ebp),%{1} #LoadLocalI32\'.format(offsetStr,r)\n    "'], ['constructor', '"        \n        self.sym = node.children[0][1].instr.sym    \n    "']]
+class X86LoadLocalI32(machineinstruction.MI):
+    @classmethod
+    def match(cls,dag,node):
+        nodestack = [node]
+        newchildren = []
+        newcontroldeps = set()
+        newins = []
+        if len(nodestack[-1].instr.assigned) != 1:
+            return False
+        newcontroldeps.update(nodestack[-1].control)
+        out = nodestack[-1].instr.assigned
+        if type(nodestack[-1].instr.assigned[0]) != ir.I32:
+            return False
+        if type(nodestack[-1].instr) != ir.Deref:
+            return False
+        #we can only match nodes with noutputs 1
+        if nodestack[-1].children[0][0] != 0:
+            return False
+        nodestack.append(nodestack[-1].children[0][1])
+        if len(nodestack[-1].instr.assigned) != 1:
+            return False
+        newcontroldeps.update(nodestack[-1].control)
+        #we cant match instructions whose intermediate is needed elsewhere
+        if len(nodestack[-1].parents) > 1:
+            return False
+        if len(nodestack[-1].parents) == 0:
+            return False
+        if type(nodestack[-1].instr.assigned[0]) != ir.Pointer:
+            return False
+        if type(nodestack[-1].instr) != ir.LoadLocalAddr:
+            return False
+        nodestack.pop()
+        node.instr = cls(node)
+        node.instr.assigned = out
+        node.children = newchildren
+        node.control = list(newcontroldeps)
+        node.instr.read = newins
+        return True
+    def asm(self):
+        
+        r = self.assigned[0]
+        offset = self.sym.slot.offset
+        if offset == None:
+            offsetStr = 'XXX'
+        else:
+            assert(offset % 4 == 0)
+            offsetStr = str( (offset) ) 
+        return 'mov -{0}(%ebp),%{1} #LoadLocalI32'.format(offsetStr,r)
+    
+    def __init__(self,node):
+        machineinstruction.MI.__init__(self)
+        
+        self.sym = node.children[0][1].instr.sym    
+    
+
 #['instr', 'X86LoadConstantI32', ['pattern', [['I32'], 'LoadConstant']], ['asmstr', '"mov ${instr.const},%{0}"'], ['constructor', '"        \n        self.const = node.instr.const    \n    "']]
 class X86LoadConstantI32(machineinstruction.MI):
     @classmethod
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -621,6 +726,7 @@ class X86LoadConstantI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "mov ${instr.const},%{0}"
@@ -636,9 +742,11 @@ class X86LoadLocalAddr(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.Pointer:
             return False
@@ -647,6 +755,7 @@ class X86LoadLocalAddr(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     def asm(self):
@@ -671,9 +780,11 @@ class X86LoadParamAddr(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.Pointer:
             return False
@@ -682,6 +793,7 @@ class X86LoadParamAddr(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     def asm(self):
@@ -706,9 +818,11 @@ class X86LoadGlobalAddr(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.Pointer:
             return False
@@ -717,6 +831,7 @@ class X86LoadGlobalAddr(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "leal {instr.sym.name}, %{0}"
@@ -732,9 +847,11 @@ class X86StoreI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 0:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = []
         if type(nodestack[-1].instr) != ir.Store:
             return False
@@ -761,6 +878,7 @@ class X86StoreI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "movl %{1}, (%{0})"
@@ -774,9 +892,11 @@ class X86StorePointer(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 0:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = []
         if type(nodestack[-1].instr) != ir.Store:
             return False
@@ -803,6 +923,7 @@ class X86StorePointer(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "movl %{1}, (%{0})"
@@ -816,9 +937,11 @@ class X86DerefI32(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.I32:
             return False
@@ -837,6 +960,7 @@ class X86DerefI32(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "mov (%{1}),%{0} "
@@ -850,9 +974,11 @@ class X86DerefPointer(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 1:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = nodestack[-1].instr.assigned
         if type(nodestack[-1].instr.assigned[0]) != ir.Pointer:
             return False
@@ -871,6 +997,7 @@ class X86DerefPointer(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     asmstr = "mov (%{1}),%{0} "
@@ -884,9 +1011,11 @@ class X86Branch(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 0:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = []
         if type(nodestack[-1].instr) != ir.Branch:
             return False
@@ -903,6 +1032,7 @@ class X86Branch(machineinstruction.MI):
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     def asm(self):
@@ -926,15 +1056,18 @@ class X86Jmp(machineinstruction.MI):
     def match(cls,dag,node):
         nodestack = [node]
         newchildren = []
+        newcontroldeps = set()
         newins = []
         if len(nodestack[-1].instr.assigned) != 0:
             return False
+        newcontroldeps.update(nodestack[-1].control)
         out = []
         if type(nodestack[-1].instr) != ir.Jmp:
             return False
         node.instr = cls(node)
         node.instr.assigned = out
         node.children = newchildren
+        node.control = list(newcontroldeps)
         node.instr.read = newins
         return True
     def asm(self):
@@ -964,6 +1097,7 @@ matchableInstructions = [
     X86LtI32,
     X86GtI32,
     X86EqI32,
+    X86LoadLocalI32,
     X86LoadConstantI32,
     X86LoadLocalAddr,
     X86LoadParamAddr,
