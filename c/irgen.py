@@ -302,8 +302,10 @@ class IRGenerator(c_ast.NodeVisitor):
             for i,arg in enumerate(node.args.exprs):
                 finalArg = self.inFunctionDispatch(arg)
                 self.assertNonVoid(finalArg)
-                if type(funcType.args[i]) == types.VarArgType:
-                    processingVarArgs = True
+                
+                if not processingVarArgs:
+                    if type(funcType.args[i]) == types.VarArgType:
+                        processingVarArgs = True
                 
                 if not processingVarArgs:
                     if not finalArg.type.strictTypeMatch(funcType.args[i]):

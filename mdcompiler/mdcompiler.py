@@ -111,34 +111,91 @@ lexer = lex.lex()
 parser = yacc.yacc()
 
 
+#Support functions
+
+def isAsmStr(s):
+    if s.startswith("#asm"):
+        return True
+    if "return" in s:
+        return False
+    return True
+
+
 def isValidType(tname):
-    return tname in ['I32','I8','Pointer']
+    return tname in ['I32','I8','Pointer', '_']
+
+_validinstructions = [
+        'Binop',
+        'Unop',
+        'Move',
+        'LoadConstant',
+        'LoadGlobalAddr',
+        'LoadLocalAddr',
+        'LoadParamAddr',
+        'Store',
+        'Deref',
+        'Branch',
+        'Jmp',
+]
 
 def isValidInstr(instr):
-    return instr in ['Binop','Unop']
+    return instr in _validinstructions 
 
 def isValidOperator(op):
-    return op in ['"+"','"-"']
+    op = op[1:-1]
+    return op in ['+','-','!=','==','<','>','<=','>=','*','/','%','!','>>','<<']
 
+#end support functions
 
 def parseInstr(tree):
     if tree[0] != 'instr':
         raise Exception("Expected an instr sexpression")
     print "class %s(machineinstruction.MI):"%tree[1]
-    
+    hasConstructor = False
     #print tree
     for field in tree[2:]:
         if field[0] == 'pattern':
             parsePattern(field)
         elif field[0] == 'extra':
             parseExtra(field)
+        elif field[0] == 'asmstr':
+            parseAsmStr(field)
+        elif field[0] == 'constructor':
+            if hasConstructor:
+                raise Exception('more than one constructor in %s' % tree[1])
+            hasConstructor = True
+            doConstructor(field[1][1:-1])
         else:
             raise Exception("unexpected field %s in instr %s"%(field[0],tree[1]))
+    
+    if hasConstructor == False:
+        doConstructor('        pass')
+
+def doConstructor(consbody):
+    print "    def __init__(self,node):"
+    print "        machineinstruction.MI.__init__(self)"
+    sys.stdout.write(consbody + '\n')
+
+
+def parseAsmStr(asmstr):
+    if type(asmstr[1]) != str:
+        raise Exception("asmstr must be a string! got %s" % extra[1])
+    if  isAsmStr(asmstr[1]):
+        print "    asmstr = %s" %asmstr[1].replace('\n','\\n')
+    else:
+        doAsmFunction(asmstr[-1][1:-1])
+
+
+def doAsmFunction(s):
+    print "    def asm(self):"
+    print s
+
 
 def parseExtra(extra):
     if type(extra[1]) != str:
         raise Exception("extra must be a string! got %s" % extra[1])
     sys.stdout.write(extra[1][1:-1])
+    print ("")
 
 def parsePattern(tree):
     #print "parsing pattern",tree
@@ -148,50 +205,97 @@ def parsePattern(tree):
     print "    @classmethod"
     print "    def match(cls,dag,node):"
     print "        nodestack = [node]"
+    print "        newchildren = []"
     print "        newins = []"
-    print "        newouts = []"
-    parseNodeMatch(0,tree[1])
-    print "        newnode = SDNode()"
-    print "        newinstr = cls()"
-    print "        newinstr.read = newins"
-    print "        newinstr.assigned = newouts"
-    print "        newnode.instr = newinstr"
-    print "        print newnode.outs"
-    print "        node.ins[0].edge.head = newnode.outs[0]"
-    print "        raise Exception('Unhandled match!')"
+    parseHeadNodeMatch(True,tree[1])
+    print "        node.instr = cls(node)"
+    print "        node.instr.assigned = out"
+    print "        node.children = newchildren"
+    print "        node.instr.read = newins"
+    print "        return True"
 
-def parseNodeMatch(depth,node):
-    #print "parsingMatchNode",node
-    print "        if len(nodestack[-1].instr.assigned) != 1:"
-    print "            return None"
-    if not isValidType(node[0]):
-        raise Exception("not a valid virtual reg type %s" % node[0]) 
-    print "        if type(nodestack[-1].instr.assigned[0]) != ir.%s:"%node[0]
-    print "            return None"
-    if len(node) == 1:
-        pass
-    else:
-        if not isValidInstr(node[1]):
-            raise Exception("not a valid instr type %s" % node[1]) 
-        print "        if type(nodestack[-1].instr) != ir.%s:"%node[1]
-        print "            return None"
-        #print depth
-        if depth > 0:
-            print "        if len(nodestack[-1].outs[0]) > 1:"
-            print "            return None"
-        offset = 0
-        if node[1] in ['Binop','Unop']:
-            offset += 1
-            if not isValidOperator(node[2]):
-                raise Exception("not a valid Operator type %s" % node[2]) 
-            print "        if nodestack[-1].instr.op != %s:"%node[2]
-            print "            return None"
-            
-        for idx,inp in enumerate(node[2+offset:]):
-            print "        nodestack.append(nodestack[-1].ins[%s].edge.head.parent)" % idx
-            parseNodeMatch(depth+1,inp)
+def parseHeadNodeMatch(isTopLevel,node):
+
+    sys.stderr.write(str(node) + '\n')
     
-    print "        nodestack.pop()"
+    if type(node[0]) == str:
+        rettype = node[0]
+        nreturns = 1
+    else:
+        if len(node[0]) == 0:
+            rettype = None
+            nreturns = 0
+        else:
+            nreturns = 1
+            rettype = node[0][0]
+    
+    print "        if len(nodestack[-1].instr.assigned) != %s:" % nreturns
+    print "            return False"
+    
+    if isTopLevel == False:
+        print "        #we cant match instructions whose intermediate is needed elsewhere"
+        print "        if len(nodestack[-1].parents) > 1:"
+        print "            return False"
+        
+    if isTopLevel:
+        if nreturns == 0:
+            print "        out = []"
+        else:
+            print "        out = nodestack[-1].instr.assigned"
+    #sanity check... 
+    if isTopLevel == False:
+        print "        if len(nodestack[-1].parents) == 0:"
+        print "            return False"  
+    
+    if rettype != None:
+        if not isValidType(rettype):
+            raise Exception("bad type %s" % rettype)
+            
+        if rettype != '_':
+            print "        if type(nodestack[-1].instr.assigned[0]) != ir.%s:"%rettype
+            print "            return False"
+    
+    if not isValidInstr(node[1]):
+        raise Exception("not a valid instr type %s" % node[1])
+    print "        if type(nodestack[-1].instr) != ir.%s:"%node[1]
+    print "            return False"
+    
+    offset = 0
+    if node[1] in ['Binop','Unop']:
+        offset += 1
+        if not isValidOperator(node[2]):
+            raise Exception("not a valid Operator type %s" % node[2]) 
+        print "        if nodestack[-1].instr.op != %s:"%node[2]
+        print "            return False"
+    
+    if len(node[2 + offset:]):
+        
+    
+    
+        for idx,subnode in enumerate(node[2 + offset:]):
+            print "        #we can only match nodes with noutputs 1"
+            print "        if nodestack[-1].children[%s][0] != 0:" % idx
+            print "            return False"
+            print "        nodestack.append(nodestack[-1].children[%s][1])" % idx
+            if len(subnode) == 1:
+                parseTerminalNodeMatch(subnode)
+            else:
+                parseHeadNodeMatch(False,subnode)
+            print "        nodestack.pop()"
+
+
+def parseTerminalNodeMatch(node):
+    print "        #matching terminal %s" % node
+    if not isValidType(node[0]):
+        raise Exception("bad type %s" % node[0])
+    
+    if node[0] != '_':
+        print "        if type(nodestack[-1].instr.assigned[0]) != ir.%s:"% node[0]
+        print "            return False"
+    print "        newchildren.append((0,nodestack[-1]))"
+    print "        newins.append(nodestack[-1].instr.assigned[0])"
+
+    
     
 
 
@@ -203,17 +307,26 @@ if __name__ == '__main__':
     print "#Auto generated file! generated with %s" %(sys.argv[0])
     print "from backend import machineinstruction"
     print "from backend import  ir"
-    print "from backend.selectiondag import *"
+    print "import backend.selectiondag as seldag"
     print ""
     tree = parser.parse(text)
-    for instr in tree:
-       #print instr
-        parseInstr(instr)
-        print ""
+    matchableInstructions = []
+    for item in tree:
+        if item[0] == 'instr':
+            sys.stdout.write('#')
+            print item
+            matchableInstructions.append(item[1])
+            parseInstr(item)
+            print ""
+        elif item[0] == 'code':
+            print item[1][1:-1]
+            print ''
+        else:
+            raise Exception("unknown top level instruction %s" % item[0])
     
     print "matchableInstructions = ["
-    for instr in tree:
-        print "    %s,"%instr[1]
+    for instr in matchableInstructions:
+        print "    %s,"%instr
     print ']'
         
 

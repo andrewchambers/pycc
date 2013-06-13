@@ -22,7 +22,6 @@ class InstructionSelector(object):
         unmatchable = set()
         while True:
             nodes = dag.ordered()
-            matches = []
             n = nodes.pop()
             #print("finding a matchable node")
             while n in unmatchable or n.instr.isMD():
@@ -34,18 +33,10 @@ class InstructionSelector(object):
             #print("trying to match <<%s>>"%n)
             
             for i in instr:
-                m = i.match(dag,n)
-                if m != None:
-                    matches.append(m)
+                if i.match(dag,n):
+                    continue
+            unmatchable.add(n)
             
-            if len(matches) == 0:
-                #print("unmatchable")
-                unmatchable.add(n)
-                continue
-                
-            maxmatch = max(matches)
-            #print("found a match")
-            maxmatch.replace()
             
     
 

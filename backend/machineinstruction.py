@@ -3,11 +3,9 @@ from ir import Instruction
 
 class MI(Instruction):
     
-    needsTwoAddressFixup = False
-    
-    
     def asm(self):
-        return self.__class__.__name__
+        args = self.assigned + self.read
+        return self.asmstr.format(*args,instr=self)
     
     def getDagDisplayText(self):
         return str(self)

@@ -118,7 +118,7 @@ class StandardMachine(target.Target):
                 if instr.isMD():
                     asmstr = instr.asm()
                 else:
-                    asmstr = self.templates[instr.getTemplateLookupStr()](instr)
+                    raise Exception("non native opcode %s:<%s>" % (type(instr),instr))
                 for line in asmstr.split("\n"):
                     outasm.append(line)
         
@@ -262,6 +262,7 @@ class StandardMachine(target.Target):
                         pushInstructions += self.pushArgument(var)
                     
                     for pushinstr in pushInstructions:
+                        print "YYYYYYYYYYY"
                         block.insert(idx,pushinstr)
                         idx += 1
                     if instr.assigned[0] != None:
@@ -302,6 +303,9 @@ class StandardMachine(target.Target):
             
             self.dagFixups(sd)
             
+            if self.args.show_all or self.args.show_selection_dag:
+                dagvis.showSelDAG(sd)
+            
             isel.select(self,sd)
             if self.args.show_all or self.args.show_md_selection_dag:
                 dagvis.showSelDAG(sd)
@@ -338,6 +342,8 @@ class StandardMachine(target.Target):
         
         for b in func:
             if type(b[-1]) == ir.Ret:
+                newRet = self.getRetInstruction(b[-1])
+                b[-1] = newRet
                 epilog = self.getEpilog(stackSize)
                 for instr in epilog:
                     b.insert(-1,instr)
