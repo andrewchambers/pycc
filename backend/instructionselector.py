@@ -34,6 +34,8 @@ class InstructionSelector(object):
             
             for i in instr:
                 if i.match(dag,n):
+                    inst = i(n)
+                    i.replace(dag,inst)
                     continue
             unmatchable.add(n)
             

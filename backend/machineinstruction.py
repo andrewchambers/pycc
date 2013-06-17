@@ -15,3 +15,7 @@ class MI(Instruction):
     
     def __repr__(self):
         return self.asm()
+    
+    @classmethod
+    def match(cls,node):
+        return self.pattern.
