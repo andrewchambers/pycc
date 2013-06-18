@@ -117,7 +117,7 @@ class RegisterAllocator(object):
     def spill(self,f,virt):
         #irvis.showFunction(f)
         #XXX get the correct size...
-        varSlot = f.createAndAddSpillSlot(4)
+        varSlot = f.createStackSlot(4)
 
         
         for b in f:

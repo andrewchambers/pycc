@@ -3,25 +3,46 @@ from backend.patterns import *
 
 import x86
 
-class X86Mov(machineinstruction.MI):
+class X86MovI32(machineinstruction.MI):
     pattern = Set(I32,Move(I32))
     asmstr = "mov %{1},%{0}"
+
+
+class X86MovI8(machineinstruction.MI):
+    pattern = Set(I8,Move(I8))
+    asmstr = "mov %{1},%{0}"
+
+class X86AndI32(machineinstruction.MI):
+    pattern = Set(I32,Binop('&',I32,I32))
+    asmstr = "and %{2},%{0}"
+
+class X86AndI8(machineinstruction.MI):
+    pattern = Set(I8,Binop('&',I8,I8))
+    asmstr = "and %{2},%{0}"
 
 
 class X86Ptr(machineinstruction.MI):
     pattern = Set(Pointer,Move(Pointer))
     asmstr = "mov %{1},%{0}"
     
-class X86Add(machineinstruction.MI):
+class X86AddI32(machineinstruction.MI):
     pattern = Set(I32,Binop('+',I32,I32))
+    asmstr = "add %{2},%{0}"
+
+class X86AddI8(machineinstruction.MI):
+    pattern = Set(I8,Binop('+',I8,I8))
     asmstr = "add %{2},%{0}"
 
 class X86AddPointer(machineinstruction.MI):
     pattern = Set(Pointer,Binop('+',Pointer,I32))
     asmstr = "add %{2},%{0}"
 
-class X86Sub(machineinstruction.MI):
+class X86SubI32(machineinstruction.MI):
     pattern = Set(I32,Binop('-',I32,I32))
+    asmstr = "sub %{2},%{0}"
+
+class X86SubI8(machineinstruction.MI):
+    pattern = Set(I8,Binop('-',I8,I8))
     asmstr = "sub %{2},%{0}"
 
 class X86IMulI32(machineinstruction.MI):
@@ -46,11 +67,19 @@ class X86IModI32(machineinstruction.MI):
 
 class X86SHLI32(machineinstruction.MI):
     pattern = Set(I32,Binop('<<',I32,I32))
-    asmstr = "shl XXX"
+    asmstr = "shl %cl,%{0}"
     
 class X86SHRI32(machineinstruction.MI):
     pattern = Set(I32,Binop('>>',I32,I32))
-    asmstr = "shr XXX"
+    asmstr = "shr %cl,%{0}"
+
+class X86SHRI8(machineinstruction.MI):
+    pattern = Set(I8,Binop('>>',I8,I8))
+    asmstr = "shr %cl,%{0}"
+
+class X86SHLI8(machineinstruction.MI):
+    pattern = Set(I8,Binop('<<',I8,I8))
+    asmstr = "shl %cl,%{0}"
 
 class X86LoadGlobalAddr(machineinstruction.MI):
     pattern = Set(Pointer,LoadGlobalAddr())
@@ -73,6 +102,9 @@ class X86LoadLocalAddr(machineinstruction.MI):
         else:
             offsetStr = str( (offset) ) 
         return 'mov %%ebp, %%%s\nsub $%s, %%%s'%(r,offsetStr,r)      
+    
+    def getStackSlots(self):
+        return [self.sym.slot]
 
 class X86LoadParamAddr(machineinstruction.MI):
     pattern = Set(Pointer,LoadParamAddr())
@@ -212,18 +244,24 @@ class X86JlI32(X86Cmp):
     pattern = Set(I32,Binop("<",I32,I32))
     jmpinstr = 'jl'  
 
-
-
-
 class X86SxI8toI32(machineinstruction.MI):
     pattern = Set(I32,Unop("sx",I8))
     asmstr = "movsx %{1},%{0}"
 
+class X86ZxI8toI32(machineinstruction.MI):
+    pattern = Set(I32,Unop("zx",I8))
+    asmstr = "movzx %{1},%{0}"
 
-
-
-
-
+class X86TrI32toI8(machineinstruction.MI):
+    pattern = Set(I8,Unop("tr",I32))
+    asmstr = "mov %{1},%{0}"
+    def asm(self):
+        if self.read[0].isPhysical():
+            #hack, convert eax etc, to low byte
+            r = self.read[0].name[1] + 'l'
+        else:
+            r = str(self.read[0])
+        return "mov %{1},%{0}".format(self.assigned[0],r)
 
 
 

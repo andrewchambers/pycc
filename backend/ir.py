@@ -54,20 +54,6 @@ class Instruction(object):
         self.read = []
         self.successors = []
         
-    def getTemplateLookupStr(self):
-        classname = self.__class__.__name__
-        try:
-            op = self.op + ' '
-        except:
-            op = ''
-        
-        ass = reduce(lambda x,y : x + y.__class__.__name__,self.assigned,'')
-        read = reduce(lambda x,y : x + y.__class__.__name__,self.read,'')
-        ret = classname + ' ' + op + ass
-        if len(read) != 0:
-            ret +=  "_" + read
-        return ret.strip()
-        
     def getDagDisplayText(self):
         return self.__class__.__name__
         
@@ -106,6 +92,9 @@ class Instruction(object):
         for k,v in enumerate(self.successors):
             if v is old:
                 self.successors[k] = new
+    
+    def getStackSlots(self):
+        return []
     
     def readsMem(self):
         return False
@@ -207,8 +196,8 @@ class LoadLocalAddr(Instruction):
             
         return "%s = LoadLocalAddr %s" % (self.assigned[0],offset)
     
-    def getSlot(self):
-        return self.sym.slot
+    def getStackSlots(self):
+        return [self.sym.slot]
     
         
 class LoadConstant(Instruction):

@@ -174,7 +174,13 @@ class Array(Type):
         return ir.Pointer()
 
     def strictTypeMatch(self,t):
-        raise Exception("unimplemented")
+        if type(t) != Array:
+            return False
+        
+        if not self.type.strictTypeMatch(t.type):
+            return False
+        
+        return True
 
 class Int(Type):
     

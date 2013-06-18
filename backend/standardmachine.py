@@ -145,8 +145,7 @@ class StandardMachine(target.Target):
                         #raise Exception(str(liveset))
                         #XXX this needs to be a proper size
                         #XXX also should reuse these slots
-                        ss = function.StackSlot(8)
-                        func.addStackSlot(ss)
+                        ss = func.createStackSlot(8)
                         before.append(self.getSaveRegisterInstruction(var,ss))
                         after.append(self.getLoadRegisterInstruction(var,ss))
                     
@@ -216,7 +215,7 @@ class StandardMachine(target.Target):
     
     def doIROpt(self,func):
         
-        mem2reg.Mem2Reg().runOnFunction(func)
+        #mem2reg.Mem2Reg().runOnFunction(func)
         #irvis.showFunction(func)
         while True:
             #irvis.showFunction(func)

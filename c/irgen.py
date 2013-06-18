@@ -120,7 +120,11 @@ class IRGenerator(c_ast.NodeVisitor):
                 raise Exception("unhandled ast node type  %s" % str(ext))
         
         self.symTab.popScope()
-     
+    
+    def visit_Cast(self,cast):
+        totype = types.parseTypeDecl(self.typeTab,cast.to_type)
+        return self.coerceType(self.inFunctionDispatch(cast.expr),totype)
+    
     def visit_typeDef(self,td):
         t = types.parseTypeDecl(self.typeTab,td.type)
         self.typeTab.registerType(td.name,t,isTypedef=True)
@@ -141,7 +145,6 @@ class IRGenerator(c_ast.NodeVisitor):
             sym = GlobalSym(decl.name,t)
         else:
             sym = LocalSym(decl.name,t)
-            self.curFunction.addStackSlot(sym.slot)
         self.symTab.addSymbol(sym)
         if not self.isGlobalScope() and not isstaticvar:
             if decl.init:
@@ -151,6 +154,8 @@ class IRGenerator(c_ast.NodeVisitor):
                     raise Exception("cannot currently handle Pointer initializers")
                 initializer = self.inFunctionDispatch(decl.init)
                 self.assertNonVoid(initializer)
+                if not t.strictTypeMatch(initializer.type):
+                    initializer = self.coerceType(initializer,t)
                 v = ir.Pointer()
                 op = ir.LoadLocalAddr(v,sym)
                 self.curBasicBlock.append(op)
@@ -173,7 +178,7 @@ class IRGenerator(c_ast.NodeVisitor):
         if funcdef.decl.type.args:
             for param in funcdef.decl.type.args.params:
                 t = types.parseTypeDecl(self.typeTab,param)
-                if type(t) not in [types.Pointer,types.Int]:
+                if type(t) not in [types.Pointer,types.Int,types.Char]:
                     raise Exception("cant handle type %s as a param yet" % t)
                 
                 sym = ParamSym(param.name,t)
@@ -214,6 +219,8 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_ID(node)
         elif type(node) == c_ast.If:
             return self.visit_If(node)
+        elif type(node) == c_ast.Cast:
+            return self.visit_Cast(node)
         elif type(node) == c_ast.Label:
             return self.visit_Label(node)
         elif type(node) == c_ast.Goto:
@@ -301,6 +308,7 @@ class IRGenerator(c_ast.NodeVisitor):
             processingVarArgs = False
             for i,arg in enumerate(node.args.exprs):
                 finalArg = self.inFunctionDispatch(arg)
+                
                 self.assertNonVoid(finalArg)
                 
                 if not processingVarArgs:
@@ -313,7 +321,15 @@ class IRGenerator(c_ast.NodeVisitor):
 
                 if finalArg.lval:
                     finalArg = self.genDeref(finalArg)
+                
+                if finalArg.type.strictTypeMatch(types.Char()):
+                    finalArg = self.coerceType(finalArg,types.Int())
+                    
+                
                 finalArgs.append(finalArg)
+                
+                
+                
         else:
             if len(funcType.args) != 0:
                 raise Exception(("calling function %s with no args when it" \
@@ -717,17 +733,20 @@ class IRGenerator(c_ast.NodeVisitor):
                 raise Exception("cannot get the address of a non lval")
             
             lv.lval = False
+            lv.type = types.Pointer(lv.type)
             return lv
         
         elif node.op == '*':
+            print lv.type
             if lv.lval:
                 lv = self.genDeref(lv)
+            print lv.type
+            lv.type = lv.type.type
             lv.lval = True
             return lv
         elif node.op == '!':
             if lv.lval:
                 lv = self.genDeref(lv)
-            
             ret = lv.clone()
             constzero = type(ret.reg)()
             self.curBasicBlock.append(ir.LoadConstant(constzero,ir.ConstantI32(0)))
@@ -747,6 +766,9 @@ class IRGenerator(c_ast.NodeVisitor):
         
         if rv.lval:
             rv = self.genDeref(rv)
+        
+        if not lv.type.strictTypeMatch(rv.type):
+            rv = self.coerceType(rv,lv.type)
         
         if not lv.lval:
             raise Exception("attemping to assign to a non lvalue!")

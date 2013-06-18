@@ -19,22 +19,7 @@ def newLocalLabel():
     return ".__l%d"%branchcounter
 
 
-
-#class X86Sext(X86BasicUnop):
-#    op = 'sx'
-#    allowedtypes = [ir.I32,ir.I8]
-#    def asm(self):
-#        return "movsx %{0},%{1}".format(self.read[0],self.assigned[0])
-
-#class X86Zext(X86BasicUnop):
-#    op = 'zx'
-#    allowedtypes = [ir.I32,ir.I8]
-#
-#    def asm(self):
-#        return "movzx %{0},%{1}".format(self.read[0],self.assigned[0])
-
-
-class X86PushI32(machineinstruction.MI):
+class X86Push(machineinstruction.MI):
     
     def asm(self):
         return "push %%%s"%(self.read[0])
@@ -100,7 +85,8 @@ class X86StackLoadI32(machineinstruction.MI):
         else:
             return "mov -XXX(%%ebp), %%%s"%(self.assigned[0])
     
-        
+    def getStackSlots(self):
+        return [self.slot]
         
 
 
@@ -116,7 +102,8 @@ class X86StackSaveI32(machineinstruction.MI):
         else:
             return "mov %%%s,-XXX(%%ebp)"%(self.read[0])
         
-        
+    def getStackSlots(self):
+        return [self.slot]        
 
 
 matchableInstructions = x86md.matchableInstructions
@@ -132,8 +119,6 @@ registers = [
     GR32('ebx'),
     GR32('ecx'),
     GR32('edx'),
-    GR32('edi'),
-    GR32('esi'),
     GR8('al'),
     GR8('bl'),
     GR8('cl'),
@@ -223,8 +208,8 @@ class X86(standardmachine.StandardMachine):
                     else:
                         resultReg = eax
                     
-                    mov1 = x86md.X86Mov()
-                    mov2 = x86md.X86Mov()
+                    mov1 = x86md.X86MovI32()
+                    mov2 = x86md.X86MovI32()
                     mov1.read = [instr.read[0]]
                     mov1.assigned = [eax]
                     mov2.read = [resultReg]
@@ -237,7 +222,7 @@ class X86(standardmachine.StandardMachine):
                     blocklen += 2
                     #print instr.assigned,instr.read
                 else:
-                    print("unsupported type for mul fixups")
+                    raise Exception("unsupported type for mul fixups")
             idx += 1
 
     def shiftFixups(self,block):
@@ -245,18 +230,23 @@ class X86(standardmachine.StandardMachine):
         blocklen = len(block)
         while idx < blocklen:
             instr = block[idx]
-            if type(instr) in [x86md.X86SHLI32,x86md.X86SHRI32]:
+            if type(instr) in [x86md.X86SHLI32,x86md.X86SHRI32,x86md.X86SHRI8,x86md.X86SHLI8]:
                 if type(instr.read[1]) == ir.I32:
-                    ecx = getRegisterByName('ecx')
-                    mov1 = X86Mov()
-                    mov1.read = [instr.read[1]]
-                    mov1.assigned = [ecx]
-                    instr.read[1] = ecx
-                    block.insert(idx,mov1)
-                    idx += 1
-                    blocklen += 1
+                    mov1 = x86md.X86MovI32()
+                    r = getRegisterByName('ecx')
+                elif type(instr.read[1]) == ir.I8:
+                    mov1 = x86md.X86MovI8()
+                    r = getRegisterByName('cl')
                 else:
-                    print("unsupported type for mul fixups")
+                    raise Exception("unsupported type for shift fixups")
+                
+                mov1.read = [instr.read[1]]
+                mov1.assigned = [r]
+                instr.read[1] = r
+                block.insert(idx,mov1)
+                idx += 1
+                blocklen += 1
+
             idx += 1
 
     def retFixups(self,block):
@@ -268,7 +258,7 @@ class X86(standardmachine.StandardMachine):
                 if len(instr.read):
                     if type(instr.read[0]) == ir.I32:
                         eax = getRegisterByName('eax')
-                        mov = x86md.X86Mov()
+                        mov = x86md.X86MovI32()
                         mov.read = [instr.read[0]]
                         mov.assigned = [eax]
                         instr.read[0] = eax
@@ -281,9 +271,8 @@ class X86(standardmachine.StandardMachine):
         
     
     def pushArgument(self,arg):
-        print "XXXXXXXXXXXXXXXXXX"
         if type(arg) in [ir.Pointer,ir.I32]:
-            pinstr = X86PushI32()
+            pinstr = X86Push()
             pinstr.read = [arg]
             return [pinstr]
         else:
@@ -292,6 +281,8 @@ class X86(standardmachine.StandardMachine):
     def getReturnReg(self,arg):
         if type(arg) in [ir.Pointer,ir.I32]:
             return getRegisterByName('eax')
+        elif type(arg) == ir.I8:
+            return getRegisterByName('al')
         else:
             raise Exception("x86 cannot handle a return of this type %s" % arg)
     
@@ -317,8 +308,13 @@ class X86(standardmachine.StandardMachine):
     #XXX decprecate this in favour of the above?
     def getCopyFromPhysicalInstruction(self,virt,reg):
         
-        if type(virt) in [ir.Pointer,ir.I32,ir.I8]:
-            ret = x86md.X86Mov()
+        if type(virt) in [ir.Pointer,ir.I32]:
+            ret = x86md.X86MovI32()
+            ret.read = [reg]
+            ret.assigned = [virt]
+            return ret
+        elif type(virt) in [ir.I8]:
+            ret = x86md.X86MovI8()
             ret.read = [reg]
             ret.assigned = [virt]
             return ret

@@ -142,7 +142,7 @@ class Mem2Reg(functionpass.FunctionPass):
         for block in f:
             for instr in block:
                 if type(instr) == ir.LoadLocalAddr:
-                    slot = instr.getSlot()
+                    slot = instr.getStackSlots()[0]
                     stracker.addSlotPointerPair(slot,instr.assigned[0])
         
         
@@ -164,7 +164,6 @@ class Mem2Reg(functionpass.FunctionPass):
         #print topromote
         for slot,regclass in topromote:
             allocations[slot] = regclass()
-            f.removeStackSlot(slot)
         
         #convert loads and stores to copys
         for block in f:

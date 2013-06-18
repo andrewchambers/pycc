@@ -4,6 +4,8 @@ import itertools
 class StackSlot(object):
     
     def __init__(self,size):
+        assert(size > 0)
+        assert(size % 4 == 0)
         self.size = size
         self.offset = None
     
@@ -12,13 +14,11 @@ class Function(object):
     def __init__(self,name):
         self.name = name
         self.entry = None
-        self.stackslots = []
         self.localsSize = 0
         self.argumentslots = []
     
-    def createAndAddSpillSlot(self,size):
+    def createStackSlot(self,size):
         ss = StackSlot(size)
-        self.addStackSlot(ss)
         return ss
     
     def addArgumentSlot(self,ss):
@@ -27,14 +27,6 @@ class Function(object):
         else:
             ss.offset = self.argumentslots[-1].offset + self.argumentslots[-1].size
         self.argumentslots.append(ss)
-    
-    def addStackSlot(self,ss):
-        #XXX probably pretty inefficient
-        if ss not in self.stackslots:
-            self.stackslots.append(ss)
-    
-    def removeStackSlot(self,ss):
-        self.stackslots.remove(ss)
     
     def resolveStack(self):
         #XXX depends if stack grows up or down...
@@ -48,12 +40,27 @@ class Function(object):
         self.entry = entry
     
     @property
+    def stackslots(self):
+        ret = []
+        s = set()
+        for block in self:
+            for instr in block:
+                for ss in instr.getStackSlots():
+                    if ss not in s:
+                        s.add(ss)
+                        ret.append(ss)
+        return ret
+    
+    @property
     def variables(self):
-        ret = set()
+        ret = []
+        s = set()
         for block in self:
             for instr in block:
                 for v in itertools.chain(instr.read,instr.assigned):
-                    ret.add(v)
+                    if v not in s:
+                        s.add(v)
+                        ret.append(v)
         return ret
         
     @variables.setter
