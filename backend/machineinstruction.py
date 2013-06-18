@@ -3,6 +3,9 @@ from ir import Instruction
 
 class MI(Instruction):
     
+    def __init__(self,node=None):
+        Instruction.__init__(self)
+    
     def asm(self):
         args = self.assigned + self.read
         return self.asmstr.format(*args,instr=self)
@@ -18,4 +21,8 @@ class MI(Instruction):
     
     @classmethod
     def match(cls,node):
-        return self.pattern.
+        return cls.pattern.match(node)
+    
+    @classmethod
+    def replace(cls,node,inst):
+        cls.pattern.replace(node,inst)

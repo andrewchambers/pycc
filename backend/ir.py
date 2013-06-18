@@ -163,9 +163,18 @@ class Call(Instruction):
         self.label = label
         
     def __repr__(self):
-        return "%s = call %s %s"%(self.assigned[0],self.label,self.read)
+        retstr = "call %s %s"%(self.label,self.read)
+        if len(self.assigned):
+            retstr = ("%s = " % (self.assigned[0])) + retstr
+        return retstr
 
     def isCall(self):
+        return True
+    
+    def readsMem(self):
+        return True
+    
+    def writesMem(self):
         return True
         
 class LoadGlobalAddr(Instruction):
@@ -249,7 +258,10 @@ class Ret(Terminator):
             self.read = []
     
     def __repr__(self):
-        return "ret %s" % self.read[0]
+        if len(self.read):
+            return "ret %s" % self.read[0]
+        else:
+            return "ir ret"
     
         
 class Branch(Terminator):

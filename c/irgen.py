@@ -324,7 +324,10 @@ class IRGenerator(c_ast.NodeVisitor):
         retV.createVirtualReg()
         callinst = ir.Call(node.name.name)
         callinst.read = list(map(lambda v : v.reg,finalArgs))
-        callinst.assigned = [retV.reg]
+        if retV.reg != None:
+            callinst.assigned = [retV.reg]
+        else:
+            callinst.assigned = []
         self.curBasicBlock.append(callinst)
         return retV
     
@@ -490,6 +493,7 @@ class IRGenerator(c_ast.NodeVisitor):
             if val.lval:
                 val = self.genDeref(val)
             retop = ir.Ret(val.reg)
+        print ("ret in %s" % self.curBasicBlock)
         self.curBasicBlock.append(retop)
     
     def visit_StructRef(self,node):
@@ -725,7 +729,9 @@ class IRGenerator(c_ast.NodeVisitor):
                 lv = self.genDeref(lv)
             
             ret = lv.clone()
-            self.curBasicBlock.append(ir.Unop('!',ret.reg,lv.reg))
+            constzero = type(ret.reg)()
+            self.curBasicBlock.append(ir.LoadConstant(constzero,ir.ConstantI32(0)))
+            self.curBasicBlock.append(ir.Binop('==',ret.reg,lv.reg,constzero))
             return ret
         else:
             raise Exception("bug - unhandle unary op %s" % node.op)

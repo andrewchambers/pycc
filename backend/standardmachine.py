@@ -242,7 +242,7 @@ class StandardMachine(target.Target):
             while idx < len(block):
                 instr = block[idx]
                 
-                if type(instr) == ir.Call:
+                if instr.isCall():
                     newCall = self.getCallInstruction(instr)
                     block[idx] = newCall
                     pushInstructions = []
@@ -253,10 +253,9 @@ class StandardMachine(target.Target):
                         pushInstructions += self.pushArgument(var)
                     
                     for pushinstr in pushInstructions:
-                        print "YYYYYYYYYYY"
                         block.insert(idx,pushinstr)
                         idx += 1
-                    if instr.assigned[0] != None:
+                    if len(instr.assigned) != 0:
                         retReg = self.getReturnReg(instr.assigned[0])
                         copy = self.getCopyFromPhysicalInstruction(instr.assigned[0],retReg)
                         newCall.assigned = [retReg]

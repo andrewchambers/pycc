@@ -30,14 +30,21 @@ class InstructionSelector(object):
                     return
                 n = nodes.pop()
             
-            #print("trying to match <<%s>>"%n)
-            
+            print("trying to match <<%s>>"%n.instr)
+            matched = False
             for i in instr:
-                if i.match(dag,n):
+                print("matching against %s"%i)
+                if i.match(n):
                     inst = i(n)
-                    i.replace(dag,inst)
-                    continue
-            unmatchable.add(n)
+                    i.replace(n,inst)
+                    print("match succeeeded")
+                    matched = True
+                    break
+            if not matched:
+                print "match failed!"
+                unmatchable.add(n)
+        
+        dag.sanityCheck()
             
             
     

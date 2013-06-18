@@ -49,7 +49,8 @@ def main():
     else:
         ofile = open(args.output,'w')
     machine.translate(args,m,ofile)
-    ofile.close()
+    if args.output != '-':
+        ofile.close()
     
     
 if __name__ == '__main__':

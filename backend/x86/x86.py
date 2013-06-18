@@ -133,6 +133,7 @@ registers = [
     GR32('ecx'),
     GR32('edx'),
     GR32('edi'),
+    GR32('esi'),
     GR8('al'),
     GR8('bl'),
     GR8('cl'),
@@ -222,8 +223,8 @@ class X86(standardmachine.StandardMachine):
                     else:
                         resultReg = eax
                     
-                    mov1 = x86md.X86Mov(None)
-                    mov2 = x86md.X86Mov(None)
+                    mov1 = x86md.X86Mov()
+                    mov2 = x86md.X86Mov()
                     mov1.read = [instr.read[0]]
                     mov1.assigned = [eax]
                     mov2.read = [resultReg]
@@ -267,7 +268,7 @@ class X86(standardmachine.StandardMachine):
                 if len(instr.read):
                     if type(instr.read[0]) == ir.I32:
                         eax = getRegisterByName('eax')
-                        mov = x86md.X86Mov(None)
+                        mov = x86md.X86Mov()
                         mov.read = [instr.read[0]]
                         mov.assigned = [eax]
                         instr.read[0] = eax
@@ -306,7 +307,7 @@ class X86(standardmachine.StandardMachine):
     def getCopyInstruction(self,toReg,fromReg):
         
         if type(fromReg) in [ir.Pointer,ir.I32,ir.I8]:
-            ret = x86md.X86Mov(None)
+            ret = x86md.X86Mov()
             ret.read = [fromReg]
             ret.assigned = [toReg]
             return ret
@@ -317,7 +318,7 @@ class X86(standardmachine.StandardMachine):
     def getCopyFromPhysicalInstruction(self,virt,reg):
         
         if type(virt) in [ir.Pointer,ir.I32,ir.I8]:
-            ret = x86md.X86Mov(None)
+            ret = x86md.X86Mov()
             ret.read = [reg]
             ret.assigned = [virt]
             return ret

@@ -58,21 +58,26 @@ class RegisterAllocator(object):
         for v in tocolor:
             print "REGISTER ALLOCATOR: ",v
             interference = ig.getInterferes(v)
+            interference = [x for x in interference if x.isPhysical()] + [coloring[x] for x in interference if x in coloring]
+            interference = set(interference)
             possibleRegs = self.target.getPossibleRegisters(v)
-            possibleRegs = set(possibleRegs) - set(filter(lambda x : x.isPhysical(),interference))
-            overlappingRegSets = map(lambda x : self.target.getInterferenceSet(x),possibleRegs)
+            possibleRegs = set(possibleRegs) - interference
+            overlappingRegSets = map(lambda x : self.target.getInterferenceSet(x),interference)
             overlappingRegs = set()
             for rs in overlappingRegSets:
                 overlappingRegs.update(rs)
             
-            possibleRegs = set(possibleRegs) - overlappingRegs - set(map(lambda x : coloring.get(x,None),interference))
+            possibleRegs = set(possibleRegs) - overlappingRegs
             
-            print "REGISTER ALLOCATOR: ",possibleRegs
+            print "REGISTER ALLOCATOR: Interference -> ",interference
+            print "REGISTER ALLOCATOR: overlapping regs ", overlappingRegs
+            print "REGISTER ALLOCATOR: possible regs ",possibleRegs
+            print "REGISTER LLOCATOR: interferes ", ig.getInterferes(v)
             
             if len(possibleRegs) == 0:
                 return tocolor[0]
-            
             coloring[v] = sorted(possibleRegs,key = lambda x : x.name)[0]
+            print "chose",coloring[v]
         
         print coloring
         self.applyColoring(f,coloring)
@@ -91,7 +96,9 @@ class RegisterAllocator(object):
                         otherphys = other
                     else:
                         otherphys = coloring[other]
-                    assert(coloring[v] != otherphys) 
+                    assert(coloring[v] != otherphys)
+                    print v,coloring[v]
+                    print otherphys,self.target.getInterferenceSet(coloring[v])
                     assert(otherphys not in self.target.getInterferenceSet(coloring[v]))
     
     def applyColoring(self,f,coloring):

@@ -38,6 +38,7 @@ class SelectionDag(object):
         var2node = {}
         
         nodes = []
+        liveout = set(liveout)
         
         lastmemaccess = None
         
@@ -86,7 +87,7 @@ class SelectionDag(object):
                 nodes[-1].control.append(nodes[-2])
         
         for n in nodes[:-1]:
-            if type(n.instr) == ir.Store:
+            if len(n.instr.assigned) == 0:
                 nodes[-1].control.append(n)
         
         self.root = nodes[-1]
