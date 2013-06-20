@@ -55,8 +55,8 @@ class StandardMachine(target.Target):
             irvis.showFunction(f)
         
         self.doInstructionSelection(f)
-        
         self.callingConventions(f)
+        
         #we are no longer in ssa after this point
         
         for block in f:
@@ -103,7 +103,6 @@ class StandardMachine(target.Target):
                 if target == linear[nextIdx]:
                     terminator.swapSuccessor(target,None)
         
-        ofile.write(".text\n")
         ofile.write(".globl %s\n" % f.name)
         
         outasm = []
@@ -312,14 +311,37 @@ class StandardMachine(target.Target):
     
     def translateModule(self,m,ofile):
         
+        #merge some obvious merges
+        m.packData()
         
-        for label,data in m.data:
-            ofile.write(".data\n")
-            ofile.write("%s:\n"%label)
+        for labels,sz in m.rwzdata:
+            assert(len(labels) == 0)
+            for label in labels:
+                ofile.write(".comm %s,%d,32\n"%(label,sz))
+        
+        ofile.write(".data\n")
+        for labels,data in m.rwdata:
+            
+            for label in labels:
+                ofile.write("%s:\n"%label)
+            
+            datastr = ''
             for char in data:
-                ofile.write('.byte %d\n' % ord(char))
-            ofile.write('\n')
+                datastr += '%d,'%ord(char)
+            ofile.write('.byte %s\n' % datastr[:-1])
         
+        ofile.write(".section .rodata\n")
+        for labels,data in m.rodata:
+            
+            for label in labels:
+                ofile.write("%s:\n"%label)
+            datastr = ''
+            for char in data:
+                datastr += '%d,'%ord(char)
+            ofile.write('.byte %s\n' % datastr[:-1])
+        
+        
+        ofile.write(".text\n")
         for f in m:
             self.translateFunction(f,ofile)
     

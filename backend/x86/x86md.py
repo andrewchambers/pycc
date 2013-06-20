@@ -6,11 +6,17 @@ import x86
 class X86MovI32(machineinstruction.MI):
     pattern = Set(I32,Move(I32))
     asmstr = "mov %{1},%{0}"
+    
+    def isMove(self):
+        return True
 
 
 class X86MovI8(machineinstruction.MI):
     pattern = Set(I8,Move(I8))
     asmstr = "mov %{1},%{0}"
+    
+    def isMove(self):
+        return True
 
 class X86AndI32(machineinstruction.MI):
     pattern = Set(I32,Binop('&',I32,I32))

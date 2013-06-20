@@ -3,8 +3,9 @@
 int printf(char *,...);
 
 
-void foo() {
-    static int x = 3;
+void foo(int arg) {
+
+    static int x = arg;
     x++;
     printf("%d\n",x);
     x++;
@@ -13,8 +14,8 @@ void foo() {
 
 
 int main() {
-    foo();
-    foo();
-    foo();
+    foo(1);
+    foo(2);
+    foo(3);
     return 0;
 }

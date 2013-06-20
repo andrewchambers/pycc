@@ -453,7 +453,9 @@ class IRGenerator(c_ast.NodeVisitor):
             t = types.Char()
             reg = ir.Pointer()
             v = ValTracker(False,types.Pointer(t),reg)
-            op = ir.LoadGlobalAddr(reg,GlobalSym(self.module.addString(cstrings.parseCString(const.value)),v.type.clone()))
+            rawdata = cstrings.parseCString(const.value)
+            label = self.module.addReadOnlyData(rawdata)
+            op = ir.LoadGlobalAddr(reg,GlobalSym(label,v.type.clone()))
             self.curBasicBlock.append(op)
             return v
         elif const.type == 'char':
