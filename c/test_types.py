@@ -187,3 +187,54 @@ def test_typeMatching2():
         assert(typea.strictTypeMatch(typeb) == False)
 
 
+
+t4 = """
+    char x;
+    unsigned char x;
+    int short x;
+    short int x;
+    unsigned short int x;
+    short x;
+    unsigned short x;
+    unsigned x;
+    int x;
+    unsigned int x;
+    long int x;
+    unsigned long int x;
+    long x;
+    unsigned long x;
+    long unsigned x;
+"""
+
+t4solutions = [
+    types.Char(signed=True),
+    types.Char(signed=False),
+    types.ShortInt(signed=True),
+    types.ShortInt(signed=True),
+    types.ShortInt(signed=False),
+    types.ShortInt(signed=True),
+    types.ShortInt(signed=False),
+    types.Int(signed=False),
+    types.Int(signed=True),
+    types.Int(signed=False),
+    types.LongInt(signed=True),
+    types.LongInt(signed=False),
+    types.LongInt(signed=True),
+    types.LongInt(signed=False),
+    types.LongInt(signed=False),
+]
+
+def test_IntTypeParsing():
+    
+    typeTable = types.TypeTable()
+    ast = astFromString(t4)
+    assert(len(t4solutions) == len(ast.ext))
+    for i,ideal in enumerate(t4solutions):
+
+        parsed = types.parseTypeDecl(typeTable,ast.ext[i])
+        print i
+        print ideal
+        print parsed
+        matches = ideal.strictTypeMatch(parsed)
+        assert(matches == True)
+

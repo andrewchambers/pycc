@@ -24,6 +24,11 @@ class I32(VirtualRegister):
     def getSize(self):
         return 4
 
+class I16(VirtualRegister):
+    
+    def getSize(self):
+        return 2
+
 class I8(VirtualRegister):
     
     def getSize(self):
@@ -34,17 +39,21 @@ class Pointer(VirtualRegister):
     def getSize(self):
         return 4
 
-class Constant(object):
+class ConstantInt(object):
+    def __init__(self,v):
+        try:
+            self.value = int(v)
+        except ValueError:
+           self.value = int(v,16)
+        
     def __repr__(self):
         return "%s"%self.value
 
-class ConstantI32(Constant):
-    def __init__(self,v):
-        self.value = int(v)
+class ConstantI32(ConstantInt):
+    pass
 
-class ConstantI8(Constant):
-    def __init__(self,v):
-        self.value = int(v)
+class ConstantI8(ConstantInt):
+    pass
     
 
 class Instruction(object):

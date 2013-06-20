@@ -16,9 +16,14 @@ class X86AndI32(machineinstruction.MI):
     pattern = Set(I32,Binop('&',I32,I32))
     asmstr = "and %{2},%{0}"
 
-class X86AndI8(machineinstruction.MI):
-    pattern = Set(I8,Binop('&',I8,I8))
-    asmstr = "and %{2},%{0}"
+class X86XorI32(machineinstruction.MI):
+    pattern = Set(I32,Binop('^',I32,I32))
+    asmstr = "xor %{2},%{0}"
+
+
+class X86OrI32(machineinstruction.MI):
+    pattern = Set(I32,Binop('|',I32,I32))
+    asmstr = "or %{2},%{0}"
 
 
 class X86Ptr(machineinstruction.MI):
@@ -29,20 +34,12 @@ class X86AddI32(machineinstruction.MI):
     pattern = Set(I32,Binop('+',I32,I32))
     asmstr = "add %{2},%{0}"
 
-class X86AddI8(machineinstruction.MI):
-    pattern = Set(I8,Binop('+',I8,I8))
-    asmstr = "add %{2},%{0}"
-
 class X86AddPointer(machineinstruction.MI):
     pattern = Set(Pointer,Binop('+',Pointer,I32))
     asmstr = "add %{2},%{0}"
 
 class X86SubI32(machineinstruction.MI):
     pattern = Set(I32,Binop('-',I32,I32))
-    asmstr = "sub %{2},%{0}"
-
-class X86SubI8(machineinstruction.MI):
-    pattern = Set(I8,Binop('-',I8,I8))
     asmstr = "sub %{2},%{0}"
 
 class X86IMulI32(machineinstruction.MI):
@@ -73,13 +70,6 @@ class X86SHRI32(machineinstruction.MI):
     pattern = Set(I32,Binop('>>',I32,I32))
     asmstr = "shr %cl,%{0}"
 
-class X86SHRI8(machineinstruction.MI):
-    pattern = Set(I8,Binop('>>',I8,I8))
-    asmstr = "shr %cl,%{0}"
-
-class X86SHLI8(machineinstruction.MI):
-    pattern = Set(I8,Binop('<<',I8,I8))
-    asmstr = "shl %cl,%{0}"
 
 class X86LoadGlobalAddr(machineinstruction.MI):
     pattern = Set(Pointer,LoadGlobalAddr())
@@ -173,20 +163,6 @@ class X86BrI32(machineinstruction.MI):
         machineinstruction.MI.__init__(self)
         self.successors = node.instr.successors
 
-class X86BrI8(machineinstruction.MI):
-    pattern = Branch(I8)
-    def asm(self):
-        if self.successors[0] != None and self.successors[1] == None:
-            return 'test %%%s,%%%s\njnz .%s'%(self.read[0],self.read[0],self.successors[0])
-        elif self.successors[0] == None and self.successors[1] != None:
-            return 'test %%%s,%%%s\njz .%s'%(self.read[0],self.read[0],self.successors[1])
-        else:
-            return 'test %%%s,%%%s\njnz .%s\njmp .%s'%(self.read[0],self.read[0],self.successors[0],self.successors[1])
-    
-    def __init__(self,node):  
-        machineinstruction.MI.__init__(self)
-        self.successors = node.instr.successors
-
 
 
 class X86Jmp(machineinstruction.MI):
@@ -225,6 +201,10 @@ class X86Cmp(machineinstruction.MI):
 
 class X86NeI32(X86Cmp):
     pattern = Set(I32,Binop("!=",I32,I32))
+    jmpinstr = 'jne'
+    
+class X86NeI8(X86Cmp):
+    pattern = Set(I8,Binop("!=",I8,I8))
     jmpinstr = 'jne'
 
 class X86EqI32(X86Cmp):

@@ -10,6 +10,8 @@ from valtracker import ValTracker
 import types
 import cstrings
 
+import operatorgen
+
 class Symbol(object):
     
     def __init__(self,name,t):
@@ -72,32 +74,6 @@ class IRGenerator(c_ast.NodeVisitor):
         if type(v.type) == types.Void:
             raise Exception("value void!")
 
-    #corce the value in valtracker, into a
-    #useable instance of type t
-    #lvalueness isnt kept
-    def coerceType(self,v,t):
-        self.assertNonVoid(v)
-
-        if t.strictTypeMatch(v.type):
-            return v
-        
-        if v.lval:
-            v = self.genDeref(v)
-        newv = ValTracker(False,t.clone(),None)
-        newv.createVirtualReg()
-        if type(v.type) in [types.Struct,types.Pointer]:
-            raise Exception("XXX cannot coerce structs and arrays atm")
-        
-        if type(t) == types.Pointer and type(v.type) == types.Pointer:
-            newv.type = t.clone()
-        elif type(t) == types.Char and type(v.type) == types.Int:
-            self.curBasicBlock.append(ir.Unop('tr',newv.reg,v.reg))
-        elif type(t) == types.Int and type(v.type) == types.Char:
-            self.curBasicBlock.append(ir.Unop('sx',newv.reg,v.reg))
-        else:
-            raise Exception("XXX unhandle coersion case %s %s"%(v.type,t))
-        return newv
-
     def visit_FileAST(self,ast):
         
         self.typeTab = types.TypeTable()
@@ -123,7 +99,7 @@ class IRGenerator(c_ast.NodeVisitor):
     
     def visit_Cast(self,cast):
         totype = types.parseTypeDecl(self.typeTab,cast.to_type)
-        return self.coerceType(self.inFunctionDispatch(cast.expr),totype)
+        return operatorgen.genCast(self.curBasicBlock,self.inFunctionDispatch(cast.expr),totype)
     
     def visit_typeDef(self,td):
         t = types.parseTypeDecl(self.typeTab,td.type)
@@ -155,7 +131,7 @@ class IRGenerator(c_ast.NodeVisitor):
                 initializer = self.inFunctionDispatch(decl.init)
                 self.assertNonVoid(initializer)
                 if not t.strictTypeMatch(initializer.type):
-                    initializer = self.coerceType(initializer,t)
+                    initializer = operatorgen.genCast(self.curBasicBlock,initializer,t)
                 v = ir.Pointer()
                 op = ir.LoadLocalAddr(v,sym)
                 self.curBasicBlock.append(op)
@@ -319,12 +295,8 @@ class IRGenerator(c_ast.NodeVisitor):
                     if not finalArg.type.strictTypeMatch(funcType.args[i]):
                         raise Exception("type mismatch in funcall")
 
-                if finalArg.lval:
-                    finalArg = self.genDeref(finalArg)
-                
-                if finalArg.type.strictTypeMatch(types.Char()):
-                    finalArg = self.coerceType(finalArg,types.Int())
-                    
+                if finalArg.type.isInt:
+                    finalArg = operatorgen.promoteToInt(self.curBasicBlock,finalArg)
                 
                 finalArgs.append(finalArg)
                 
@@ -469,7 +441,8 @@ class IRGenerator(c_ast.NodeVisitor):
     
     def visit_Constant(self,const):
         if const.type == 'int':
-            t = self.typeTab.lookupType(const.type)
+            #XXX
+            t = types.Int()
             reg = ir.I32()
             const = ir.ConstantI32(const.value)
             op = ir.LoadConstant(reg,const)
@@ -477,14 +450,14 @@ class IRGenerator(c_ast.NodeVisitor):
             self.curBasicBlock.append(op)
             return v
         elif const.type == 'string':
-            t = self.typeTab.lookupType('char')
+            t = types.Char()
             reg = ir.Pointer()
             v = ValTracker(False,types.Pointer(t),reg)
             op = ir.LoadGlobalAddr(reg,GlobalSym(self.module.addString(cstrings.parseCString(const.value)),v.type.clone()))
             self.curBasicBlock.append(op)
             return v
         elif const.type == 'char':
-            t = self.typeTab.lookupType('char')
+            t = types.Char()
             v = ValTracker(False,t,None)
             v.createVirtualReg()
             const = ir.ConstantI8(cstrings.parseCChar(const.value))
@@ -504,7 +477,7 @@ class IRGenerator(c_ast.NodeVisitor):
             val = self.inFunctionDispatch(ret.expr)
             self.assertNonVoid(val)
             if not val.type.strictTypeMatch(self.curFunctionType.rettype):
-                val = self.coerceType(val,self.curFunctionType.rettype)
+                val = operatorgen.genCast(self.curBasicBlock,val,self.curFunctionType.rettype)
 
             if val.lval:
                 val = self.genDeref(val)
@@ -621,19 +594,7 @@ class IRGenerator(c_ast.NodeVisitor):
             rv = self.inFunctionDispatch(node.right)
             self.assertNonVoid(lv)
             self.assertNonVoid(rv)
-            if rv.lval:
-                rv = self.genDeref(rv)
-            
-            if lv.lval:
-                lv = self.genDeref(lv)
-            
-            if not lv.type.strictTypeMatch(rv.type):
-                rv = self.coerceType(rv,lv.type)
-            
-            ret = ValTracker(False,lv.type.clone(),None)
-            ret.createVirtualReg()
-            self.curBasicBlock.append(ir.Binop(node.op,ret.reg,lv.reg,rv.reg))
-            return ret
+            return operatorgen.genBinop(self.curBasicBlock,node.op,lv,rv)
     
     def visit_ID(self,node):
         
@@ -768,7 +729,7 @@ class IRGenerator(c_ast.NodeVisitor):
             rv = self.genDeref(rv)
         
         if not lv.type.strictTypeMatch(rv.type):
-            rv = self.coerceType(rv,lv.type)
+            rv = operatorgen.genCast(self.curBasicBlock,rv,lv.type)
         
         if not lv.lval:
             raise Exception("attemping to assign to a non lvalue!")

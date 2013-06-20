@@ -62,7 +62,47 @@ def _parseTypeDecl(typeTable,node):
         return parseTypeDecl(typeTable,sub)
 
 def _parseIdentifierType(typeTable,node):
-    return typeTable.lookupType(node.names[0])
+    
+    s = sorted(node.names)
+    
+    s = [v for v in s if v not in ['signed','unsigned','long','short']]
+    
+    if len(s) == 0:
+        typename = 'int'
+    else:
+        assert(len(s) == 1)
+        typename = s[0]
+    
+    if 'short' in node.names and 'long' in node.names:
+        raise Exception("No valid type is both short and long.")
+    
+    if 'signed' in node.names and 'unsigned' in node.names:
+        raise Exception("No valid type is both signed and unsigned.")
+            
+    if node.names.count('long') > 1:
+        raise Exception("currently unimplemented long long")
+    
+    if 'unsigned' in node.names:
+        signed = False
+    else:
+        signed = True
+    
+    if typename == 'int':
+        if 'long' in node.names:
+            return LongInt(signed=signed)
+        elif 'short' in node.names:
+            return ShortInt(signed=signed)
+        else:
+            return Int(signed=signed)
+    elif typename == 'char':
+        if 'long' in node.names or 'short' in node.names:
+            raise Exception('cannot have a long or short char')
+        return Char(signed=signed)
+    else:
+        ret = typeTable.lookupType(typename).clone()
+        if isinstance(ret,IntType):
+            ret.signed = signed
+        return ret
 
 def _parseArrayDecl(typeTable,node):
     dim = node.dim
@@ -76,6 +116,7 @@ def _parseArrayDecl(typeTable,node):
 
 class Type(object):
     isStruct = False
+    isInt = False
 
     def strictTypeMatch(self,t):
         if type(t) != type(self):
@@ -182,7 +223,44 @@ class Array(Type):
         
         return True
 
-class Int(Type):
+class IntType(Type):
+    isInt = True
+    def __init__(self,signed=True):
+        self.signed = signed
+    
+    
+    def strictTypeMatch(self,t):
+        if type(t) != type(self):
+            return False
+        
+        if self.signed != t.signed:
+            return False
+        
+        return True
+
+class Char(IntType):
+    def getSize(self):
+        return 1
+        
+    def createVirtualReg(self):
+        return ir.I8()
+    
+    def clone(IntType):
+        return Char()
+
+
+class ShortInt(IntType):
+    
+    def getSize(self):
+        return 2
+        
+    def createVirtualReg(self):
+        return ir.I16()
+    
+    def clone(self):
+        return ShortInt()
+
+class Int(IntType):
     
     def getSize(self):
         return 4
@@ -193,16 +271,17 @@ class Int(Type):
     def clone(self):
         return Int()
 
-
-class Char(Type):
+class LongInt(IntType):
+    
     def getSize(self):
-        return 1
+        return 4
         
     def createVirtualReg(self):
-        return ir.I8()
+        return ir.I32()
     
     def clone(self):
-        return Char()
+        return LongInt()
+
 
 class Struct(Type):
     
@@ -268,8 +347,6 @@ class TypeTable(object):
          
          self.types = {}
          self.structTypes = {}
-         self.registerType('int', Int())
-         self.registerType('char', Char())
          self.registerType('void',Void())
     
     def lookupType(self,name,isStructType=False):

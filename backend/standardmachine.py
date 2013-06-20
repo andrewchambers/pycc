@@ -180,7 +180,7 @@ class StandardMachine(target.Target):
                         curBlockToAddCopy = instr.blocks[bidx]
                         if curBlockToAddCopy not in blockCopies:
                             blockCopies[curBlockToAddCopy] = []
-                        blockCopies[curBlockToAddCopy].append(self.getCopyFromPhysicalInstruction(instr.assigned[0],v))
+                        blockCopies[curBlockToAddCopy].append(self.getCopyInstruction(instr.assigned[0],v))
                     continue
                 idx += 1
         
@@ -256,7 +256,7 @@ class StandardMachine(target.Target):
                         idx += 1
                     if len(instr.assigned) != 0:
                         retReg = self.getReturnReg(instr.assigned[0])
-                        copy = self.getCopyFromPhysicalInstruction(instr.assigned[0],retReg)
+                        copy = self.getCopyInstruction(instr.assigned[0],retReg)
                         newCall.assigned = [retReg]
                         idx += 1
                         block.insert(idx,copy)
@@ -301,8 +301,6 @@ class StandardMachine(target.Target):
             newblockops = [node.instr for node in sd.ordered() if type(node.instr) not in [selectiondag.Identity,selectiondag.LiveOut]]
             b.opcodes = newblockops
     
-    def branchSelection(self,instr):
-        raise Exception("unimlpemented")
     
     def translateModule(self,m,ofile):
         

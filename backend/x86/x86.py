@@ -230,13 +230,10 @@ class X86(standardmachine.StandardMachine):
         blocklen = len(block)
         while idx < blocklen:
             instr = block[idx]
-            if type(instr) in [x86md.X86SHLI32,x86md.X86SHRI32,x86md.X86SHRI8,x86md.X86SHLI8]:
+            if type(instr) in [x86md.X86SHLI32,x86md.X86SHRI32]:
                 if type(instr.read[1]) == ir.I32:
                     mov1 = x86md.X86MovI32()
                     r = getRegisterByName('ecx')
-                elif type(instr.read[1]) == ir.I8:
-                    mov1 = x86md.X86MovI8()
-                    r = getRegisterByName('cl')
                 else:
                     raise Exception("unsupported type for shift fixups")
                 
@@ -297,29 +294,19 @@ class X86(standardmachine.StandardMachine):
     
     def getCopyInstruction(self,toReg,fromReg):
         
-        if type(fromReg) in [ir.Pointer,ir.I32,ir.I8]:
-            ret = x86md.X86Mov()
+        if type(fromReg) in [ir.Pointer,ir.I32] or type(toReg) in [ir.Pointer,ir.I32]:
+            ret = x86md.X86MovI32()
+            ret.read = [fromReg]
+            ret.assigned = [toReg]
+            return ret
+        elif type(fromReg) in [ir.I8] or type(toReg) in [ir.I8]:
+            ret = x86md.X86MovI8()
             ret.read = [fromReg]
             ret.assigned = [toReg]
             return ret
         else:
-            raise Exception("XXXXXX")
+            raise Exception("unable to deduce copy for %s %s"%(toReg,fromReg))
     
-    #XXX decprecate this in favour of the above?
-    def getCopyFromPhysicalInstruction(self,virt,reg):
-        
-        if type(virt) in [ir.Pointer,ir.I32]:
-            ret = x86md.X86MovI32()
-            ret.read = [reg]
-            ret.assigned = [virt]
-            return ret
-        elif type(virt) in [ir.I8]:
-            ret = x86md.X86MovI8()
-            ret.read = [reg]
-            ret.assigned = [virt]
-            return ret
-        else:
-            raise Exception("XXXXXXXXX")
     
     def getEpilog(self,stackSize):
         return [X86Leave(stackSize)]
