@@ -264,6 +264,14 @@ class StandardMachine(target.Target):
                     if stackChange:
                         idx += 1
                         block.insert(idx,self.getStackClearingInstruction(stackChange))
+                
+                elif type(instr) == ir.Ret:
+                    if len(instr.read):
+                        r = self.getReturnReg(instr.read[0])
+                        mov = self.getCopyInstruction(r,instr.read[0])
+                        block.insert(idx,mov)
+                        idx += 1
+                
                     
                 idx += 1
     
