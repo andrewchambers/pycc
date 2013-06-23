@@ -7,12 +7,15 @@
 #
 # This module implements an ANSI-C style lexical preprocessor for PLY. 
 # -----------------------------------------------------------------------------
-from __future__ import generators
+
 
 # -----------------------------------------------------------------------------
 # Default preprocessor lexer definitions.   These tokens are enough to get
 # a basic preprocessor working.   Other modules may import these if they want
 # -----------------------------------------------------------------------------
+
+# Source code Modified and extended for use within acc compiler 
+
 
 import sys
 
@@ -882,29 +885,42 @@ class Preprocessor(object):
             self.parser = None
             return None
 
-if __name__ == '__main__':
+import argparse
+
+argparser = argparse.ArgumentParser()
+
+argparser.add_argument('input',type=str)
+argparser.add_argument('-I', '--Include', nargs='+', type=str,default=[])
+argparser.add_argument('-o', '--output', type=str)
+
+args = None
+
+
+def main():
+    global args
+    args = argparser.parse_args()
     import c.pycparser
     import c.pycparser.ply.lex as lex
     lexer = lex.lex()
-
-    # Run a preprocessor
-    f = open(sys.argv[1])
-    input = f.read()
-
     p = Preprocessor(lexer)
-    p.parse(input,sys.argv[1])
+    for path in args.Include:
+        p.add_path(path)
+    
+    inpath = args.input
+    infile = open(inpath)
+    # Run a preprocessor
+    input = infile.read()
+    infile.close()
+    p.parse(input,inpath)
+    ofile = open(args.output,'w')
     while True:
         tok = p.token()
-        if not tok: break
-        sys.stdout.write(tok.value)
+        if not tok:
+            break
+        #print tok
+        ofile.write(tok.value)  
+    ofile.close()
 
 
-
-
-    
-
-
-
-
-
-
+if __name__ == '__main__':
+    main()
