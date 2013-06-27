@@ -11,15 +11,11 @@ backends = {
     "ir" : irbackend.IRBackend ,
 }
 
-
 argparser = argparse.ArgumentParser()
-
 argparser.add_argument('source')
-
 argparser.add_argument('--backend',default="x86")
 argparser.add_argument('--frontend',default="C")
 argparser.add_argument('--output',default="-")
-
 argparser.add_argument('--iropt', action='store_true')
 argparser.add_argument('--show-preopt-function', action='store_true')
 argparser.add_argument('--show-postopt-function', action='store_true')
@@ -33,7 +29,6 @@ argparser.add_argument('--show-all', action='store_true')
 args = argparser.parse_args()
 
 def main():
-    
     
     if args.backend not in backends:
         print "invalid backend - %s"%args.backend
@@ -54,5 +49,6 @@ def main():
     
     
 if __name__ == '__main__':
-    
     main()
+    
+

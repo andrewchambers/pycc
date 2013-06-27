@@ -11,8 +11,6 @@ class RegisterAllocator(object):
     def __init__(self,tgt):
         self.target = tgt
     
-
-    
     def allocate(self,f):
         
         while True:
@@ -24,13 +22,12 @@ class RegisterAllocator(object):
             
             var = self.color(f,ig)
             if var != None:
-                print("REGISTER ALLOCATOR:  spilling ",var)
+                #print("REGISTER ALLOCATOR:  spilling ",var)
                 self.spill(f,var)
                 continue
             
             break
         
-    
     def build(self,f):
         return interference.InterferenceGraph(f)
     
@@ -42,7 +39,7 @@ class RegisterAllocator(object):
                     if r1.isPhysical() == False:
                         if r1 != r2:
                             if r2 not in ig.getInterferes(r1):
-                                print 'REGISTER ALLOCATOR: coalacing',r1,r2
+                                #print 'REGISTER ALLOCATOR: coalacing',r1,r2
                                 self.replace(f,r1,r2)
                                 return True
         return False
@@ -56,7 +53,7 @@ class RegisterAllocator(object):
         removed = set()
         #XXX
         for v in tocolor:
-            print "REGISTER ALLOCATOR: ",v
+            #print "REGISTER ALLOCATOR: ",v
             interference = ig.getInterferes(v)
             interference = [x for x in interference if x.isPhysical()] + [coloring[x] for x in interference if x in coloring]
             interference = set(interference)
@@ -69,17 +66,17 @@ class RegisterAllocator(object):
             
             possibleRegs = set(possibleRegs) - overlappingRegs
             
-            print "REGISTER ALLOCATOR: Interference -> ",interference
-            print "REGISTER ALLOCATOR: overlapping regs ", overlappingRegs
-            print "REGISTER ALLOCATOR: possible regs ",possibleRegs
-            print "REGISTER LLOCATOR: interferes ", ig.getInterferes(v)
+            #print "REGISTER ALLOCATOR: Interference -> ",interference
+            #print "REGISTER ALLOCATOR: overlapping regs ", overlappingRegs
+            #print "REGISTER ALLOCATOR: possible regs ",possibleRegs
+            #print "REGISTER LLOCATOR: interferes ", ig.getInterferes(v)
             
             if len(possibleRegs) == 0:
                 return tocolor[0]
             coloring[v] = sorted(possibleRegs,key = lambda x : x.name)[0]
-            print "chose",coloring[v]
+            #print "chose",coloring[v]
         
-        print coloring
+        #print coloring
         self.applyColoring(f,coloring)
         return None
     
@@ -97,8 +94,8 @@ class RegisterAllocator(object):
                     else:
                         otherphys = coloring[other]
                     assert(coloring[v] != otherphys)
-                    print v,coloring[v]
-                    print otherphys,self.target.getInterferenceSet(coloring[v])
+                    #print v,coloring[v]
+                    #print otherphys,self.target.getInterferenceSet(coloring[v])
                     assert(otherphys not in self.target.getInterferenceSet(coloring[v]))
     
     def applyColoring(self,f,coloring):

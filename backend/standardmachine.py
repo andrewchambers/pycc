@@ -41,6 +41,42 @@ class Register(object):
 
 class StandardMachine(target.Target):
     
+    def translateModule(self,m,ofile):
+        
+        #merge some obvious merges
+        m.packData()
+        
+        for labels,sz in m.rwzdata:
+            assert(len(labels) == 0)
+            for label in labels:
+                ofile.write(".comm %s,%d,32\n"%(label,sz))
+        
+        ofile.write(".data\n")
+        for labels,data in m.rwdata:
+            
+            for label in labels:
+                ofile.write("%s:\n"%label)
+            
+            datastr = ''
+            for char in data:
+                datastr += '%d,'%ord(char)
+            ofile.write('.byte %s\n' % datastr[:-1])
+        
+        ofile.write(".section .rodata\n")
+        for labels,data in m.rodata:
+            
+            for label in labels:
+                ofile.write("%s:\n"%label)
+            datastr = ''
+            for char in data:
+                datastr += '%d,'%ord(char)
+            ofile.write('.byte %s\n' % datastr[:-1])
+        
+        
+        ofile.write(".text\n")
+        for f in m:
+            self.translateFunction(f,ofile)
+    
     
     def translateFunction(self,f,ofile):
         
@@ -82,15 +118,12 @@ class StandardMachine(target.Target):
         if self.args.show_all or self.args.show_md_function:
             irvis.showFunction(f)
         
-        
         self.prologAndEpilog(f)
         self.preEmitCleanup(f)
-        
         
         #linearize the function
         
         linear = list(f)
-        
         
         #swap remove branch targets that will fall through
         for idx,b in enumerate(linear):
@@ -309,41 +342,7 @@ class StandardMachine(target.Target):
             b.opcodes = newblockops
     
     
-    def translateModule(self,m,ofile):
-        
-        #merge some obvious merges
-        m.packData()
-        
-        for labels,sz in m.rwzdata:
-            assert(len(labels) == 0)
-            for label in labels:
-                ofile.write(".comm %s,%d,32\n"%(label,sz))
-        
-        ofile.write(".data\n")
-        for labels,data in m.rwdata:
-            
-            for label in labels:
-                ofile.write("%s:\n"%label)
-            
-            datastr = ''
-            for char in data:
-                datastr += '%d,'%ord(char)
-            ofile.write('.byte %s\n' % datastr[:-1])
-        
-        ofile.write(".section .rodata\n")
-        for labels,data in m.rodata:
-            
-            for label in labels:
-                ofile.write("%s:\n"%label)
-            datastr = ''
-            for char in data:
-                datastr += '%d,'%ord(char)
-            ofile.write('.byte %s\n' % datastr[:-1])
-        
-        
-        ofile.write(".text\n")
-        for f in m:
-            self.translateFunction(f,ofile)
+
     
     def prologAndEpilog(self,func):
         

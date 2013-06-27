@@ -260,5 +260,5 @@ for cls in globals().values():
     except TypeError:
         pass
 
-print matchableInstructions
+#print matchableInstructions
 

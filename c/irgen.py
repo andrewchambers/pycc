@@ -484,7 +484,7 @@ class IRGenerator(c_ast.NodeVisitor):
             if val.lval:
                 val = self.genDeref(val)
             retop = ir.Ret(val.reg)
-        print ("ret in %s" % self.curBasicBlock)
+        #print ("ret in %s" % self.curBasicBlock)
         self.curBasicBlock.append(retop)
     
     def visit_StructRef(self,node):

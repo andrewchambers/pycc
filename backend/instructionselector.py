@@ -1,18 +1,6 @@
 from backend import ir
 from vis import dagvis
 
-class InstructionMatch(object):
-    
-    def __init__(self,repl,count):
-        self.repl = repl
-        self.count = count
-    
-    def __len__(self):
-        return self.count
-        
-    def replace(self):
-        self.repl()
-
 
 class InstructionSelector(object):
     
@@ -30,18 +18,18 @@ class InstructionSelector(object):
                     return
                 n = nodes.pop()
             
-            print("trying to match <<%s>>"%n.instr)
+            #print("trying to match <<%s>>"%n.instr)
             matched = False
             for i in instr:
-                print("matching against %s"%i)
+                #print("matching against %s"%i)
                 if i.match(n):
                     inst = i(n)
                     i.replace(n,inst)
-                    print("match succeeeded")
+                    #print("match succeeeded")
                     matched = True
                     break
             if not matched:
-                print "match failed!"
+                #print "match failed!"
                 unmatchable.add(n)
         
         dag.sanityCheck()
