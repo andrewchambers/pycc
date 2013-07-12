@@ -293,10 +293,12 @@ class IRGenerator(c_ast.NodeVisitor):
                 
                 if not processingVarArgs:
                     if not finalArg.type.strictTypeMatch(funcType.args[i]):
-                        raise Exception("type mismatch in funcall")
+                        raise Exception("type mismatch in funcall %s %s incompatible with %s" % (funcSym.name,finalArg.type.type,funcType.args[i].type))
 
                 if finalArg.type.isInt:
                     finalArg = operatorgen.promoteToInt(self.curBasicBlock,finalArg)
+                
+                finalArg = operatorgen.removeLValness(self.curBasicBlock,finalArg);
                 
                 finalArgs.append(finalArg)
                 

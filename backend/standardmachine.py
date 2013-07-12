@@ -247,7 +247,7 @@ class StandardMachine(target.Target):
     
     def doIROpt(self,func):
         
-        #mem2reg.Mem2Reg().runOnFunction(func)
+        mem2reg.Mem2Reg().runOnFunction(func)
         #irvis.showFunction(func)
         while True:
             #irvis.showFunction(func)

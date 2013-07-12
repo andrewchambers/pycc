@@ -125,11 +125,12 @@ def genCast(bb,v,t):
     
     newv = valtracker.ValTracker(False,t.clone(),None)
     newv.createVirtualReg()
-    if type(v.type) in [types.Struct,types.Pointer]:
+    if type(v.type) in [types.Struct]:
         raise Exception("XXX cannot coerce structs and arrays atm")
     
     if type(t) == types.Pointer and type(v.type) == types.Pointer:
         newv.type = t.clone()
+        newv.reg = v.reg
     elif type(t) == types.Char and type(v.type) == types.Int:
         bb.append(ir.Unop('tr',newv.reg,v.reg))
     elif type(t) == types.Int and type(v.type) == types.Char:
@@ -143,7 +144,8 @@ def genCast(bb,v,t):
     else:
         raise Exception("XXX unhandle coersion case %s %s"%(v.type,t))
     
-    newv.type.signed = t.signed
+    if hasattr(t,'signed'):
+        newv.type.signed = t.signed
     #print("done casting %s %s to %s %s"%(newv.type,newv.type.signed,t,t.signed))
     assert(newv.type.strictTypeMatch(t))
     return newv
