@@ -6,6 +6,7 @@ import tempfile
 import shutil
 import subprocess
 import argparse
+import platform
 
 """
 This is the main driver for the compiler.
@@ -14,6 +15,7 @@ It invokes the preprocessor, the assembler, and linker. Will be
 compatible enough with gcc enough so that is can be used in configure scripts
 etc.
 """
+
 
 argparser = argparse.ArgumentParser()
 
@@ -56,16 +58,21 @@ def compileSource(infname,outfname):
     subprocess.check_call(cmd)
 
 def assembleSourceFile(infname,outfname):
+    
+    mflag = '-m32'
+    
     cmd = [
-            'gcc', '-c',
+            'gcc', '-c',mflag,
             infname,
             '-o',outfname,
             ]
     subprocess.check_call(cmd)
 
 def linkExecuteable(objectfile,outfname):
+    mflag = '-m32'
     cmd = [
         'gcc',
+        mflag,
         objectfile,
         '-o',outfname,
         ]

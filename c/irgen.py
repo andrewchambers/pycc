@@ -174,7 +174,7 @@ class IRGenerator(c_ast.NodeVisitor):
             self.curBasicBlock.append(ir.Ret(retval))
     
     def inFunctionDispatch(self,node):
-        
+        #ugly, but done for speed, maybe this doesnt matter and can be refactored
         if node == None:
             pass
         elif type(node) == c_ast.Compound:
@@ -207,6 +207,12 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_For(node)
         elif type(node) == c_ast.While:
             return self.visit_While(node)
+        elif type(node) == c_ast.DoWhile:
+            return self.visit_DoWhile(node)
+        elif type(node) == c_ast.TernaryOp:
+            return self.visit_TernaryOp(node)
+        elif type(node) == c_ast.ExprList:
+            return self.visit_ExprList(node)
         elif type(node) == c_ast.Break:
             return self.visit_Break(node)
         elif type(node) == c_ast.Continue:
@@ -325,6 +331,42 @@ class IRGenerator(c_ast.NodeVisitor):
         self.curBasicBlock.append(callinst)
         return retV
     
+    def visit_TernaryOp(self,node):
+        
+        trueblock = basicblock.BasicBlock()
+        falseblock = basicblock.BasicBlock()
+        nxt = basicblock.BasicBlock()
+        
+        v = self.inFunctionDispatch(node.cond)
+        self.assertNonVoid(v)
+        if v.lval:
+            v = self.genDeref(v)
+        
+        
+        self.curBasicBlock.append(ir.Branch(v.reg,trueblock,falseblock))
+        
+        self.curBasicBlock = trueblock
+        vtrue = self.inFunctionDispatch(node.iftrue)
+        self.curBasicBlock = falseblock
+        vfalse = self.inFunctionDispatch(node.iffalse)
+        
+        trueblock.append(ir.Jmp(nxt))
+        falseblock.append(ir.Jmp(nxt))
+        
+        
+        if not vtrue.type.strictTypeMatch(vfalse.type):
+            raise Exception("Type mismatch in true and false in ternary operator")
+        
+        vout = vtrue.clone()
+        
+        
+        
+        self.curBasicBlock = nxt
+        self.curBasicBlock.append(ir.Phi(vout.reg,[(vtrue.reg,trueblock),(vfalse.reg,falseblock)]))
+        return vout
+        
+        
+    
     def visit_If(self,node):
         
         v = self.inFunctionDispatch(node.cond)
@@ -381,6 +423,40 @@ class IRGenerator(c_ast.NodeVisitor):
         
         self.curBasicBlock = nxt
         
+    
+    def visit_DoWhile(self,node):
+        
+        cnd = basicblock.BasicBlock()
+        nxt = basicblock.BasicBlock()
+        body = basicblock.BasicBlock()
+        
+        self.curBreakTargets.append(nxt)
+        self.curContinueTargets.append(cnd)
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(body))
+        self.curBasicBlock = body
+        
+        self.inFunctionDispatch(node.stmt)
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(cnd))
+        
+        self.curBasicBlock = cnd
+        
+        v = self.inFunctionDispatch(node.cond)
+        self.assertNonVoid(v)
+        if v.lval:
+            v = self.genDeref(v)
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Branch(v.reg,body,nxt))
+        
+        self.curBreakTargets.pop()
+        self.curContinueTargets.pop()
+        
+        self.curBasicBlock = nxt
+    
     
     def visit_Continue(self,node):
         if self.curBasicBlock.unsafeEnding():
@@ -444,6 +520,12 @@ class IRGenerator(c_ast.NodeVisitor):
             for block_item in compound.block_items:
                 self.inFunctionDispatch(block_item)
         self.symTab.popScope()
+    
+    def visit_ExprList(self,node):
+        v = None
+        for e in node.exprs:
+            v = self.inFunctionDispatch(e)
+        return v
     
     def visit_Constant(self,const):
         if const.type == 'int':
@@ -667,6 +749,20 @@ class IRGenerator(c_ast.NodeVisitor):
         
     def visit_UnaryOp(self,node):
         
+        if node.op == 'sizeof':
+            oldBB = self.curBasicBlock
+            self.curBasicBlock = basicblock.BasicBlock()
+            v = self.inFunctionDispatch(node.expr)
+            sz = v.type.getSize()
+            self.curBasicBlock = oldBB
+            t = types.Int()
+            reg = ir.I32()
+            const = ir.ConstantI32(sz)
+            op = ir.LoadConstant(reg,const)
+            v = ValTracker(False,t,reg)
+            self.curBasicBlock.append(op)
+            return v
+        
         lv = self.inFunctionDispatch(node.expr)
         self.assertNonVoid(lv)
         if node.op in ['++','--']:
@@ -720,6 +816,19 @@ class IRGenerator(c_ast.NodeVisitor):
             constzero = type(ret.reg)()
             self.curBasicBlock.append(ir.LoadConstant(constzero,ir.ConstantI32(0)))
             self.curBasicBlock.append(ir.Binop('==',ret.reg,lv.reg,constzero))
+            return ret
+        
+        elif node.op == '~':
+            if lv.lval:
+                lv = self.genDeref(lv)
+            ret = lv.clone()
+            self.curBasicBlock.append(ir.Unop('~',ret.reg,lv.reg))
+            return ret
+        elif node.op == '-':
+            if lv.lval:
+                lv = self.genDeref(lv)
+            ret = lv.clone()
+            self.curBasicBlock.append(ir.Unop('-',ret.reg,lv.reg))
             return ret
         else:
             raise Exception("bug - unhandle unary op %s" % node.op)

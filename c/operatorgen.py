@@ -171,7 +171,7 @@ def genBinop(bb,op,lv,rv):
         #neither is lval after its been promoted
         lv,rv = arithConversion(bb,lv,rv)
         ret = lv.clone()
-        if op in ['+','-','|','^','*','/','%','!=','==','<','>','>>','<<']:
+        if op in ['+','-','|','&','^','*','/','%','!=','==','<=','>=','<','>','>>','<<']:
             bb.append(ir.Binop(op,ret.reg,lv.reg,rv.reg))
         else:
             raise Exception('unhandled binop %s' % op)

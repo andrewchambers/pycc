@@ -228,6 +228,16 @@ class X86JlI32(X86Cmp):
     pattern = Set(I32,Binop("<",I32,I32))
     jmpinstr = 'jl'  
 
+class X86GgeI32(X86Cmp):
+    pattern = Set(I32,Binop(">=",I32,I32))
+    jmpinstr = 'jge'
+
+
+class X86JleI32(X86Cmp):
+    pattern = Set(I32,Binop("<=",I32,I32))
+    jmpinstr = 'jle'  
+
+
 class X86SxI8toI32(machineinstruction.MI):
     pattern = Set(I32,Unop("sx",I8))
     asmstr = "movsx %{1},%{0}"
@@ -247,6 +257,21 @@ class X86TrI32toI8(machineinstruction.MI):
             r = str(self.read[0])
         return "mov %{1},%{0}".format(self.assigned[0],r)
 
+class X86InvI32I32(machineinstruction.MI):
+    pattern = Set(I32,Unop("~",I32))
+    def asm(self):
+        if self.read[0] == self.assigned[0]:
+            return "not %{0}".format(self.read[0])
+        else:
+            return "pushl %{0}\nnot %{0}\nmov %{0},%{1}\npopl %{0}".format(self.read[0],self.assigned[0])
+
+class X86NegI32I32(machineinstruction.MI):
+    pattern = Set(I32,Unop("-",I32))
+    def asm(self):
+        if self.read[0] == self.assigned[0]:
+            return "neg %{0}".format(self.read[0])
+        else:
+            return "pushl %{0}\nneg %{0}\nmov %{0},%{1}\npopl %{0}".format(self.read[0],self.assigned[0])
 
 
 matchableInstructions = []
