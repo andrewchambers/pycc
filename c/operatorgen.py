@@ -131,6 +131,14 @@ def genCast(bb,v,t):
     if type(t) == types.Pointer and type(v.type) == types.Pointer:
         newv.type = t.clone()
         newv.reg = v.reg
+    elif type(t) == types.Int and type(v.type) == types.Pointer:
+        newv.type = t.clone()
+        newv.reg = ir.I32()
+        bb.append(ir.Unop('cvt',newv.reg,v.reg))
+    elif type(t) == types.Pointer and type(v.type) == types.Int:
+        newv.type = t.clone()
+        newv.reg = ir.Pointer()
+        bb.append(ir.Unop('cvt',newv.reg,v.reg))
     elif type(t) == types.Char and type(v.type) == types.Int:
         bb.append(ir.Unop('tr',newv.reg,v.reg))
     elif type(t) == types.Int and type(v.type) == types.Char:
@@ -163,7 +171,7 @@ def genBinop(bb,op,lv,rv):
         #neither is lval after its been promoted
         lv,rv = arithConversion(bb,lv,rv)
         ret = lv.clone()
-        if op in ['+','-','*','/','%','!=','==','<','>','>>','<<']:
+        if op in ['+','-','|','^','*','/','%','!=','==','<','>','>>','<<']:
             bb.append(ir.Binop(op,ret.reg,lv.reg,rv.reg))
         else:
             raise Exception('unhandled binop %s' % op)

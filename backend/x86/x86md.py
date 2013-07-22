@@ -26,11 +26,9 @@ class X86XorI32(machineinstruction.MI):
     pattern = Set(I32,Binop('^',I32,I32))
     asmstr = "xor %{2},%{0}"
 
-
 class X86OrI32(machineinstruction.MI):
     pattern = Set(I32,Binop('|',I32,I32))
     asmstr = "or %{2},%{0}"
-
 
 class X86Ptr(machineinstruction.MI):
     pattern = Set(Pointer,Move(Pointer))

@@ -3,10 +3,14 @@ import subprocess
 import tempfile
 
 class GraphViz(object):
-    def __enter__(self):
+
+    def __init__(self):
         self.gvfd,self.gvfname = tempfile.mkstemp(suffix=".gv")
         fd,self.svgfname = tempfile.mkstemp(suffix=".svg")
-        os.close(fd) # we dont need this fd
+        os.close(fd) # we dont need this fd  
+    
+    def __enter__(self):
+
         return self
     
     def write(self,s):

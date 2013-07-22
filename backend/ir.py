@@ -148,6 +148,7 @@ class Binop(Instruction):
 
 class Unop(Instruction):
     def __init__(self,op,res,arg):
+        Instruction.__init__(self)
         self.op = op
         self.assigned = [res]
         self.read = [arg]

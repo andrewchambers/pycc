@@ -15,8 +15,8 @@ class RegisterAllocator(object):
         
         while True:
             ig = self.build(f)
-            if self.coalesce(f,ig):
-                continue
+            #if self.coalesce(f,ig):
+            #    continue
             
             #interferencevis.showInterferenceGraph(ig)
             
@@ -99,7 +99,7 @@ class RegisterAllocator(object):
                     assert(otherphys not in self.target.getInterferenceSet(coloring[v]))
     
     def applyColoring(self,f,coloring):
-        self.verifyColoring(f,coloring)
+        #self.verifyColoring(f,coloring)
         for b in f:
             for instr in b:
                 for k in coloring:

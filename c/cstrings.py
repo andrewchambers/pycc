@@ -26,7 +26,6 @@ def parseCString(rawString):
             else:
                 result += trimmed[idx]
         else:
-            print trimmed[idx]
             result += trimmed[idx]    
         
         idx += 1        

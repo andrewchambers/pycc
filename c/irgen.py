@@ -119,6 +119,8 @@ class IRGenerator(c_ast.NodeVisitor):
         isstaticvar = 'static' in decl.storage
         if self.isGlobalScope() or isstaticvar:
             sym = GlobalSym(decl.name,t)
+            if type(decl.type) != c_ast.FuncDecl:
+                self.module.addZeroInitData(4,label=decl.name)
         else:
             sym = LocalSym(decl.name,t)
         self.symTab.addSymbol(sym)
@@ -291,12 +293,14 @@ class IRGenerator(c_ast.NodeVisitor):
                     if type(funcType.args[i]) == types.VarArgType:
                         processingVarArgs = True
                 
-                if not processingVarArgs:
-                    if not finalArg.type.strictTypeMatch(funcType.args[i]):
-                        raise Exception("type mismatch in funcall %s %s incompatible with %s" % (funcSym.name,finalArg.type.type,funcType.args[i].type))
-
                 if finalArg.type.isInt:
                     finalArg = operatorgen.promoteToInt(self.curBasicBlock,finalArg)
+                
+                if not processingVarArgs:
+                    if not finalArg.type.strictTypeMatch(funcType.args[i]):
+                        raise Exception("type mismatch in funcall %s %s incompatible with %s" % (funcSym.name,finalArg.type,funcType.args[i]))
+
+
                 
                 finalArg = operatorgen.removeLValness(self.curBasicBlock,finalArg);
                 
@@ -739,12 +743,7 @@ class IRGenerator(c_ast.NodeVisitor):
             raise Exception("attemping to assign to a non lvalue!")
         
         if node.op in ['+=','-=' ,'/=','^=','|=','&=','*=','%=']:
-            val = lv.deref()
-            result = lv.clone()
-            result.lval = False
-            result.createVirtualReg()
-            self.curBasicBlock.append(ir.Deref(val.reg,lv.reg))
-            self.curBasicBlock.append(ir.Binop(node.op[0],result.reg,val.reg,rv.reg))
+            result = operatorgen.genBinop(self.curBasicBlock,node.op[0],lv,rv)
         else:
             if node.op != '=' :
                 raise Exception("Bug - unknown assignment op %s" % node.op)

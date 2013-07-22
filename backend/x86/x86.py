@@ -87,7 +87,22 @@ class X86StackLoadI32(machineinstruction.MI):
     
     def getStackSlots(self):
         return [self.slot]
+
+class X86StackLoadI8(machineinstruction.MI):
+    def __init__(self,reg,slot):
+        machineinstruction.MI.__init__(self)
+        self.slot = slot
+        self.assigned = [reg]
+
+    def asm(self):
         
+        if self.slot.offset != None:
+            return "mov -%d(%%ebp), %%%s"%(self.slot.offset,self.assigned[0])
+        else:
+            return "mov -XXX(%%ebp), %%%s"%(self.assigned[0])
+    
+    def getStackSlots(self):
+        return [self.slot]    
 
 
 class X86StackSaveI32(machineinstruction.MI):
@@ -104,6 +119,22 @@ class X86StackSaveI32(machineinstruction.MI):
         
     def getStackSlots(self):
         return [self.slot]        
+
+
+class X86StackSaveI8(machineinstruction.MI):
+    def __init__(self,reg, slot):
+        machineinstruction.MI.__init__(self)
+        self.slot = slot
+        self.read = [reg]
+    
+    def asm(self):
+        if self.slot.offset != None:
+            return "mov %%%s,-%d(%%ebp)"%(self.read[0],self.slot.offset)
+        else:
+            return "mov %%%s,-XXX(%%ebp)"%(self.read[0])
+        
+    def getStackSlots(self):
+        return [self.slot]    
 
 
 matchableInstructions = x86md.matchableInstructions
@@ -303,12 +334,16 @@ class X86(standardmachine.StandardMachine):
     def getSaveRegisterInstruction(self,reg,ss):
         if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.I32):
             return X86StackSaveI32(reg,ss)
+        elif type(reg) in [ir.I8] or reg.canContain(ir.I8):
+            return X86StackSaveI8(reg,ss)
         else:
             raise Exception("unsupported save register type %s" % reg)
         
     def getLoadRegisterInstruction(self,reg,ss):
         if type(reg) in [ir.Pointer,ir.I32] or reg.canContain(ir.Pointer) or reg.canContain(ir.I32):
             return X86StackLoadI32(reg,ss)
+        elif type(reg) in [ir.I8] or reg.canContain(ir.I8):
+            return X86StackLoadI8(reg,ss)
         else:
             raise Exception("unsupported load register type %s" % reg)
         

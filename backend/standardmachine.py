@@ -47,7 +47,6 @@ class StandardMachine(target.Target):
         m.packData()
         
         for labels,sz in m.rwzdata:
-            assert(len(labels) == 0)
             for label in labels:
                 ofile.write(".comm %s,%d,32\n"%(label,sz))
         
