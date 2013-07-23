@@ -268,7 +268,7 @@ class Branch(Terminator):
         Terminator.__init__(self)
         self.read = [v]
         self.successors = [t,f]
-        
+    
     def __repr__(self):
         return "if %s goto %s else %s" %(self.read[0],self.successors[0],self.successors[1])
     

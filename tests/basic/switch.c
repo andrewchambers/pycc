@@ -3,11 +3,33 @@ void puts(char *);
 
 int main() {
     
-    int x = 0;
+    int i;
+    for(i = 0; i < 6; i++) {
+        puts("start");
     
-    x = x ? 1 : 0;
+        switch(i) {
+            case 0:
+                puts("0");
+            case 1:
+                puts("1");
+            case 2:
+                puts("2");
+            case 3:
+                puts("3");
+                break;
+            case 4:
+                continue;
+            default:
+                puts("default");
+            case 10:
+                puts("afterdefault");
+        }
+        
+        
+        puts("end");
+    }
     
-    puts(x ? "foo" : "bar");
+    return 0;
     
 }
 

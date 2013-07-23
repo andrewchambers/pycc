@@ -207,6 +207,8 @@ class IRGenerator(c_ast.NodeVisitor):
             return self.visit_For(node)
         elif type(node) == c_ast.While:
             return self.visit_While(node)
+        elif type(node) == c_ast.Switch:
+            return self.visit_Switch(node)
         elif type(node) == c_ast.DoWhile:
             return self.visit_DoWhile(node)
         elif type(node) == c_ast.TernaryOp:
@@ -311,8 +313,6 @@ class IRGenerator(c_ast.NodeVisitor):
                 finalArg = operatorgen.removeLValness(self.curBasicBlock,finalArg);
                 
                 finalArgs.append(finalArg)
-                
-                
                 
         else:
             if len(funcType.args) != 0:
@@ -420,8 +420,62 @@ class IRGenerator(c_ast.NodeVisitor):
             self.curBasicBlock.append(ir.Jmp(cnd))
         self.curBreakTargets.pop()
         self.curContinueTargets.pop()
-        
         self.curBasicBlock = nxt
+
+    def visit_Switch(self,node):
+        
+        end = basicblock.BasicBlock()
+        self.curBreakTargets.append(end)
+        
+        v = self.inFunctionDispatch(node.cond)
+        self.assertNonVoid(v)
+        if v.lval:
+            v = self.genDeref(v)
+        
+        default = None
+        bodies = []
+        
+        for case in node.stmt.block_items:
+            bodies.append(basicblock.BasicBlock())
+        
+        for idx,case in enumerate(node.stmt.block_items):
+            if type(case) == c_ast.Case:
+                if type(case.expr) != c_ast.Constant:
+                    #XXX this needs to be proper const expressions
+                    raise Exception("non constant expression as case value")
+                casev = self.inFunctionDispatch(case.expr)
+                result = operatorgen.genBinop(self.curBasicBlock,'==',v,casev)
+                nxt = basicblock.BasicBlock()
+                self.curBasicBlock.append(ir.Branch(result.reg,bodies[idx],nxt))
+                self.curBasicBlock = nxt
+            elif type(case) == c_ast.Default:
+                if default != None:
+                    raise Exception("multiple defaults in case")
+                default = bodies[idx]
+            else:
+                raise Exception("Non case or default in switch body")
+        
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(default))
+        
+            
+        #populate the bodies of each case
+        for idx,case in enumerate(node.stmt.block_items):
+            self.curBasicBlock = bodies[idx]
+            try:
+                fallthrough = bodies[idx+1]
+            except IndexError:
+                fallthrough = end
+            for stmt in case.stmts:
+                self.inFunctionDispatch(stmt)
+            
+            if self.curBasicBlock.unsafeEnding():
+                self.curBasicBlock.append(ir.Jmp(fallthrough))
+        
+        self.curBasicBlock = end
+        self.curBreakTargets.pop()
+        
+        print "end: ", self.curBasicBlock
         
     
     def visit_DoWhile(self,node):
@@ -476,10 +530,11 @@ class IRGenerator(c_ast.NodeVisitor):
         
         lcmp = basicblock.BasicBlock()
         lcode = basicblock.BasicBlock()
+        lpost = basicblock.BasicBlock()
         lend = basicblock.BasicBlock()
         
         self.curBreakTargets.append(lend)
-        self.curContinueTargets.append(lend)
+        self.curContinueTargets.append(lpost)
         
         if node.init:
             self.inFunctionDispatch(node.init)
@@ -504,6 +559,9 @@ class IRGenerator(c_ast.NodeVisitor):
         self.curBasicBlock = lcode
         if node.stmt:
             self.inFunctionDispatch(node.stmt)
+        if self.curBasicBlock.unsafeEnding():
+            self.curBasicBlock.append(ir.Jmp(lpost))
+        self.curBasicBlock = lpost
         if node.next:
             self.inFunctionDispatch(node.next)
         if self.curBasicBlock.unsafeEnding():
@@ -559,6 +617,7 @@ class IRGenerator(c_ast.NodeVisitor):
             raise Exception('unimplemented constant load : %s' % const.coord)
     
     def visit_Return(self,ret):
+        #print("XXXXXX",self.curBasicBlock)
         if ret.expr == None:
             if type(self.curFunctionType.rettype) != types.Void:
                 raise Exception("returning void in a non void function")
