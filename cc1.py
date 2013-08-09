@@ -2,19 +2,18 @@ import sys
 import argparse
 
 from c.frontend import CFrontend
-
 from backend.x86 import x86
-from backend.irbackend import irbackend
+from interp.interpreter import Interpreter
 
 backends = {
     "x86" : x86.X86 ,
-    "ir" : irbackend.IRBackend ,
 }
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('source')
 argparser.add_argument('--backend',default="x86")
 argparser.add_argument('--frontend',default="C")
+argparser.add_argument('--interpret', action='store_true')
 argparser.add_argument('--output',default="-")
 argparser.add_argument('--iropt', action='store_true')
 argparser.add_argument('--show-preopt-function', action='store_true')
@@ -25,8 +24,17 @@ argparser.add_argument('--show-md-function-preallocation', action='store_true')
 argparser.add_argument('--show-md-function', action='store_true')
 argparser.add_argument('--show-interference', action='store_true')
 argparser.add_argument('--show-all', action='store_true')
-
 args = argparser.parse_args()
+
+
+def interpret(module):
+    i = Interpreter()
+    i.loadProcess(module,'main',[])
+    while True:
+        if i.step() == False:
+            sys.exit(i.getExitCode())
+
+
 
 def main():
     
@@ -37,6 +45,10 @@ def main():
     backendClass = backends[args.backend]
     
     m = CFrontend.translateModule(args.source)
+    
+    if args.interpret == True:
+        interpret(m)
+        return
     
     machine = backendClass()
     if args.output == '-':
