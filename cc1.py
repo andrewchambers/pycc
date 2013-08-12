@@ -13,7 +13,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('source')
 argparser.add_argument('--backend',default="x86")
 argparser.add_argument('--frontend',default="C")
-argparser.add_argument('--interpret', action='store_true')
+argparser.add_argument('--dump-ir', default=None)
 argparser.add_argument('--output',default="-")
 argparser.add_argument('--iropt', action='store_true')
 argparser.add_argument('--show-preopt-function', action='store_true')
@@ -46,8 +46,10 @@ def main():
     
     m = CFrontend.translateModule(args.source)
     
-    if args.interpret == True:
-        interpret(m)
+    if args.dump_ir:
+        import pickle
+        f = open(args.dump_ir,'w')
+        pickle.dump(m,f)
         return
     
     machine = backendClass()

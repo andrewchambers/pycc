@@ -1,23 +1,8 @@
 #Interpret the IR, used for testing
 from backend import ir
 import StringIO
+import memory
 
-
-class Memory(object):
-    
-    def __init__(self):
-        self.pages = {}
-    
-    def readUInt32(self,addr):
-        pass
-        
-    #allocate heap memory
-    def malloc(self):
-        pass
-    
-    #allocate memory on the stack
-    def alloca(self):
-        pass
 
 class CallFrame(object):
 
@@ -26,9 +11,11 @@ class CallFrame(object):
         self.stackslots = {}
         self.paramslots = {}
 
+
 class Interpreter(object):
     
     def __init__(self):
+        self.mm = memory.MemoryManager()
         self.setStdOut(StringIO.StringIO())
         self.setStdErr(StringIO.StringIO())
         self.setStdIn(StringIO.StringIO())
@@ -42,13 +29,19 @@ class Interpreter(object):
     def setStdIn(self,f):
         self._stdin = f
     
-    def loadProcess(module,entrypoint,args):
+    def loadModule(self,module,args):
         self.curFunction = None
         self.curBlock = None
         self.blockIdx = 0
-        self.callStack = []    
+        curFrame = CallFrame()
+        self.callStack = [curFrame]
+        self.curFunction = module.getFunction('main')
+        self.curBlock = self.curFunction.entry
+        
         
     def step(self):
-        pass
+        instr = self.curBlock[self.blockIdx]
+        
+        self.doInstruction()
     
 

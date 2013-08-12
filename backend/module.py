@@ -13,6 +13,7 @@ class Module(object):
         #array of [labels],lengths
         self.rwzdata = []
         
+        self.functionDict = {}
         self.functions = []
         self.dataLabelCounter = 0
     
@@ -50,6 +51,13 @@ class Module(object):
     
     def addFunction(self,f):
         self.functions.append(f)
+        if f.name in self.functionDict:
+            raise RuntimeError("Multiple functions called %s"
+                                " being added to module"%f.name)
+        self.functionDict[f.name] = f
+        
+    def getFunction(self,name):
+        return self.functionDict.get(name,None)
     
     def __iter__(self):
         return self.functions.__iter__()
