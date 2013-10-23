@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 
 
+
 def newTempFile(suffix=''):
     t = tempfile.NamedTemporaryFile(delete=False,suffix=suffix)
     ret = t.name
@@ -81,6 +82,13 @@ class TestConfiguration(object):
         return result
 
 
+def sanityTest():
+    t = GCCX86('./tests/basic/1.c')
+    r = t.getTestResults()
+    if not r['assembles'] or not r['compiles'] or r['retcode'] != 0:
+        raise Exception("Test sanity test failed! make sure GCCX86 config works before running tests")
+        
+
 class GCCX86(TestConfiguration):
     configurationName = "gcc configuration"
     compileCommand = "gcc -std=c99 {0} -S -o {1}"
@@ -89,12 +97,12 @@ class GCCX86(TestConfiguration):
 class CCX86(TestConfiguration):
     configurationName = "cc noopt configuration"
     compileCommand = "python ./cc1.py {0} --output={1}"
-    assembleCommand = "gcc {0} -o {1}"
+    assembleCommand = "gcc -m32 {0} -o {1}"
 
 class CCOPTX86(TestConfiguration):
     configurationName = "cc with opt configuration"
     compileCommand = "python ./cc1.py --iropt {0} --output={1}"
-    assembleCommand = "gcc {0} -o {1}"
+    assembleCommand = "gcc -m32 {0} -o {1}"
 
 
 def pytest_addoption(parser):
@@ -130,11 +138,6 @@ class CTestItem(pytest.Item):
         result = self.testConf.getTestResults()
         idealResult = self.idealConf.getTestResults()
         
-        if not idealResult['compiles'] or not idealResult['assembles']:
-            raise Exception( ("Test failed. the reference config failed to compile or run..." 
-                              "please verify commands '%s' and '%s' work" % (self.idealConf.compileCommand,
-                                                                           self.idealConf.assembleCommand)))
-            
             
         testfields = [
             'compiles',
@@ -176,4 +179,8 @@ class CTestException(Exception):
         self.field = failedField
         self.ideal = idealResult
         self.actual = actualResult
-        
+
+
+
+
+sanityTest() 

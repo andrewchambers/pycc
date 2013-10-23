@@ -1,7 +1,8 @@
 
 
 
-
+# XXX the data needs to be completely reworked to match the C data and const initializers
+# things like label + constant and other considerations
 
 
 class Module(object):

@@ -3,7 +3,6 @@ import argparse
 
 from c.frontend import CFrontend
 from backend.x86 import x86
-from interp.interpreter import Interpreter
 
 backends = {
     "x86" : x86.X86 ,
@@ -25,15 +24,6 @@ argparser.add_argument('--show-md-function', action='store_true')
 argparser.add_argument('--show-interference', action='store_true')
 argparser.add_argument('--show-all', action='store_true')
 args = argparser.parse_args()
-
-
-def interpret(module):
-    i = Interpreter()
-    i.loadProcess(module,'main',[])
-    while True:
-        if i.step() == False:
-            sys.exit(i.getExitCode())
-
 
 
 def main():
