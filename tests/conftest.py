@@ -130,6 +130,12 @@ class CTestItem(pytest.Item):
         result = self.testConf.getTestResults()
         idealResult = self.idealConf.getTestResults()
         
+        if not idealResult['compiles'] or not idealResult['assembles']:
+            raise Exception( ("Test failed. the reference config failed to compile or run..." 
+                              "please verify commands '%s' and '%s' work" % (self.idealConf.compileCommand,
+                                                                           self.idealConf.assembleCommand)))
+            
+            
         testfields = [
             'compiles',
             'assembles',

@@ -2,7 +2,7 @@ import functionpass
 from backend import ir
 
 
-#remove vars that arent used
+#Constant folding, incomplete
 
 class ConstantFold(functionpass.FunctionPass):
     

@@ -23,7 +23,6 @@ class UnusedVars(functionpass.FunctionPass):
                 
                 unused = set([x for x in assigned if x not in read])
                 
-
                 for b in f:
                     k = 0
                     while k < len(b):

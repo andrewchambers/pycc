@@ -6,6 +6,9 @@ from backend import dominators
 
 from vis import irvis
 
+#This pass aims to be similar to the mem2reg pass in llvm. promoting 
+#registers from stack slots into registers
+
 class PromoteableSlotTracker(object):
     
     def __init__(self):

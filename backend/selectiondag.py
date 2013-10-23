@@ -1,6 +1,9 @@
 import ir
 import itertools
 
+#XXX instruction selection does not work for matching multiple nodes yet
+# The instruction selection should probably be redesigned and rewritten
+
 class Identity(ir.Instruction):
     def __init__(self,v):
         ir.Instruction.__init__(self)
