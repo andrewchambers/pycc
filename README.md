@@ -10,6 +10,8 @@ The diagnostics for the compiler need improvement to be truly useable.
 The compiler is buggy and incomplete but some of its code including its register allocator and some SSA algorithms are 
 useful imo.
 
+*Im no longer working on this particular compiler*
+
 email me at andrewchamberss@gmail.com for more info about issues and implementation details.
 
 
